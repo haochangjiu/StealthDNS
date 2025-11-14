@@ -1,5 +1,5 @@
 # StealthDNS
-
+![StealthDNS Logo](./stealthdns.svg)
 > **Local Zero Trust DNS resolver built on [OpenNHP](https://github.com/OpenNHP/opennhp).  
 > Hide your network resources. Resolve only what’s earned.**
 
