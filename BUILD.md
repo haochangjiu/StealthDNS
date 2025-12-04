@@ -132,4 +132,27 @@ If updates to the SDK files are needed, please refer to the documentation in `ht
 ### 1.5 Execution
 
 - **Windows**: Run the program with Administrator privileges. If running without Administrator rights, manually change the system DNS configuration: add `127.0.0.1` as the primary or sole DNS server to ensure domain name resolution is routed through the StealthDNS proxy service.
+
+  Double-click the `stealth-dns.exe` file or run it via the command `stealth-dns.exe run` in the command prompt.
+
 - **Linux and macOS**: Run the program using the `sudo` command or as the `root` user. Otherwise, the StealthDNS service will be unable to listen on port 53, and the DNS proxy address `127.0.0.1` cannot be added.
+
+  Run it in the terminal using the command `sudo stealth-dns run`.
+
+
+
+### 1.6 Access and Certificates
+
+Once the StealthDNS service starts successfully, access it by entering `https://demo.nhp` in the address bar of your browser.
+
+The domain name `demo.nhp` is resolved by StealthDNS. Since `demo.nhp` is a custom domain name and not an actual internet domain, the browser will block access due to a certificate domain name mismatch when attempting to visit this domain.
+
+To ensure secure browser access, follow these steps:
+
+- Install the root certificate for the domain `demo.nhp` using the program to enable normal access to the service.
+
+  Root certificate import or generation command:
+
+  `stealth-dns install-root-ca` or `stealth-dns i`
+
+  For other certificate-related commands, refer to the program help documentation: `stealth-dns --help`

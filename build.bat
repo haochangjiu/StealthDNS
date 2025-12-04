@@ -11,6 +11,7 @@ IF %ERRORLEVEL% NEQ 0 goto :exit
 if not exist release\etc mkdir release\etc
 copy  etc\*.* release\etc
 copy  sdk\nhp-agent.* release\sdk
+copy  etc\cert\rootCA.pem release\etc\cert
 
 :exit
 IF %ERRORLEVEL% NEQ 0 (

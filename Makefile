@@ -21,7 +21,8 @@ build:
 	@echo "[StealthDNS] Building package..."
 	go build -trimpath -ldflags="-w -s" -v -o ./release/stealth-dns ./main.go && \
 	cp ./etc/*.toml ./release/etc/ && \
-	cp ./sdk/nhp-agent.* ./release/sdk/
+	cp ./sdk/nhp-agent.* ./release/sdk/ && \
+	cp ./etc/cert/rootCA.pem ./release/etc/cert/
 ifeq ($(OS_NAME), darwin)
 	install_name_tool -change nhp-agent.dylib ./sdk/nhp-agent.dylib ./release/stealth-dns
 endif

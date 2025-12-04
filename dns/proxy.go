@@ -70,7 +70,6 @@ func (p *ProxyService) Start(dirPath string, logLevel int) (err error) {
 	if !p.dnsManager.SetStealthDNS() {
 		log.Warning("Stealth DNS setup failed. Please ensure the DNS proxy address 127.0.0.1 is set as the alternate DNS.")
 	}
-	fmt.Println(dirPath)
 	p.nhpAgent, err = agent.NewNhpAgent(dirPath)
 	if err != nil {
 		log.Error("init nhp-agent fail: %v", err)
@@ -129,7 +128,7 @@ func (p *ProxyService) Stop() {
 
 func (p *ProxyService) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	domainName := r.Question[0].Name
-	log.Debug("domain name：%s, question type：%s", domainName, dns.TypeToString[r.Question[0].Qtype])
+	log.Trace("domain name：%s, question type：%s", domainName, dns.TypeToString[r.Question[0].Qtype])
 	if strings.Contains(domainName, common.NhpDomainNameSuffix) {
 		resId := domainName[:strings.Index(domainName, common.NhpDomainNameSuffix)]
 		if r.Question[0].Qtype == common.Type_A || r.Question[0].Qtype == common.Type_AAAA {
