@@ -8,14 +8,16 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/urfave/cli/v2 v2.27.7
 	golang.org/x/sync v0.18.0
+	golang.org/x/sys v0.37.0
 	golang.org/x/text v0.31.0
+	howett.net/plist v1.0.1
+	software.sslmate.com/src/go-pkcs12 v0.6.0
 )
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/coocood/freecache v1.2.4 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
-	github.com/emmansun/gmsm v0.24.1 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -26,7 +28,6 @@ require (
 	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
 	gorm.io/driver/mysql v1.5.2 // indirect
 	gorm.io/gorm v1.25.5 // indirect
