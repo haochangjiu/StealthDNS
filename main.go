@@ -5,7 +5,9 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/OpenNHP/StealthDNS/cert"
 	"github.com/OpenNHP/StealthDNS/dns"
@@ -63,7 +65,7 @@ func main() {
 
 	certCreateCmd := &cli.Command{
 		Name:    "create-cert",
-		Aliases: []string{"create", "c"},
+		Aliases: []string{"c"},
 		Usage:   "create a certificate from a CSR file or a domain name.",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -104,6 +106,14 @@ func main() {
 
 func runApp() error {
 	fmt.Println("Stealth DNS starting")
+	if !isAdminPermission() {
+		fmt.Println("Insufficient privileges detected. This application must be executed with administrator/root permissions. Please relaunch with elevated rights.")
+		if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+			time.Sleep(3 * time.Second)
+			os.Exit(0)
+		}
+	}
+
 	exeFilePath, err := os.Executable()
 	if err != nil {
 		return err
@@ -123,4 +133,23 @@ func runApp() error {
 	<-termCh
 	p.Stop()
 	return nil
+}
+
+func isAdminPermission() bool {
+	switch runtime.GOOS {
+	case "windows":
+		_, err := os.Open("\\\\.\\PHYSICALDRIVE0")
+		if err == nil {
+			return true
+		} else {
+			return false
+		}
+	case "darwin":
+		return os.Geteuid() == 0
+	case "linux":
+		return os.Geteuid() == 0
+	default:
+		fmt.Println(runtime.GOOS, " operating system is not supported; unable to create a DNS handler.")
+		return false
+	}
 }
