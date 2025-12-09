@@ -94,7 +94,7 @@ func (h *MacHandler) getInterfaceName() error {
 }
 
 func (h *MacHandler) isNetworkServiceActive(service string) bool {
-	cmd := exec.Command("/usr/sbin/networksetup", "-getinfo", service)
+	cmd := exec.Command("networksetup", "-getinfo", service)
 	output, err := cmd.Output()
 	if err != nil {
 		return false
