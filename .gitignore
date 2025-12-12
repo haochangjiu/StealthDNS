@@ -34,3 +34,5 @@ go.work.sum
 release/
 
 logs/
+# Auto-generated SDK binaries
+sdk/
