@@ -76,7 +76,7 @@ Wails安装存在疑问，请参考[Wails官方安装说明](https://wails.io/do
   PrivateKeyBase64 = "eACeqvhs7AWHIXM+xsKK9cCk31gFinnMGgGI2RuAxUQ="
   DefaultCipherScheme = 1
   UserId = "agent-0"
-  OrganizationId = "opennhp.cn"
+  OrganizationId = "opennhp.org"
   LogLevel = 4
   # UserData: a customized user entry for flexibility.
   # Its key-value pairs will be send to server along with knock message.

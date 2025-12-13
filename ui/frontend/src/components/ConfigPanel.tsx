@@ -103,7 +103,7 @@ export function ConfigPanel({ config, loading, onSave }: ConfigPanelProps) {
             className="form-input"
             value={formData.organizationId}
             onChange={e => handleChange('organizationId', e.target.value)}
-            placeholder="opennhp.cn"
+            placeholder="opennhp.org"
           />
         </div>
       </div>
