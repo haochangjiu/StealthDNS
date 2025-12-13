@@ -73,7 +73,7 @@ IF %ERRORLEVEL% NEQ 0 (
     exit /b %ERRORLEVEL%
 )
 
-call npm install
+call npm ci
 IF %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
 
 
@@ -108,6 +108,11 @@ goto :builddns
 
 
 :done
+echo [StealthDNS] Cleaning up submodule changes...
+cd /d "%ROOT_DIR%"
+cd third_party\opennhp
+git restore .
+cd /d "%ROOT_DIR%"
 echo [Done] StealthDNS for platform %OS% built!
 goto :eof
 
