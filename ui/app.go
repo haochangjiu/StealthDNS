@@ -548,7 +548,7 @@ func (a *App) StopDNS() error {
 
 	// First try to kill the actual stealth-dns process (by process name)
 	// Since we use elevation tools to start, a.process points to the elevation tool process
-	err := a.killStealthDNSProcess()
+	gracefulShutdown, err := a.killStealthDNSProcess()
 	if err != nil {
 		wailsRuntime.LogWarning(a.ctx, "Failed to stop service by process name: "+err.Error())
 		needRestoreDNS = true // Stop failed, UI needs to restore DNS
@@ -557,9 +557,13 @@ func (a *App) StopDNS() error {
 		// On Windows, if graceful shutdown via signal file was used, stealth-dns will restore DNS itself
 		// If taskkill force kill was used, UI needs to restore DNS
 		if goruntime.GOOS == "windows" {
-			// Check if it was graceful shutdown (by checking if process exited on its own in short time)
-			// If killStealthDNSProcess returns success but waited long, it probably used taskkill
-			needRestoreDNS = true // Be conservative, always try to restore
+			if gracefulShutdown {
+				wailsRuntime.LogInfo(a.ctx, "Graceful shutdown - stealth-dns restored DNS itself")
+				needRestoreDNS = false
+			} else {
+				wailsRuntime.LogInfo(a.ctx, "Force kill used - UI needs to restore DNS")
+				needRestoreDNS = true
+			}
 		}
 	}
 
@@ -671,7 +675,8 @@ func (a *App) killMacOSProcess() error {
 }
 
 // killStealthDNSProcess kills stealth-dns process by process name
-func (a *App) killStealthDNSProcess() error {
+// Returns (gracefulShutdown bool, err error) - gracefulShutdown is true if signal file method was used
+func (a *App) killStealthDNSProcess() (bool, error) {
 	var cmd *exec.Cmd
 
 	switch goruntime.GOOS {
@@ -684,7 +689,7 @@ func (a *App) killStealthDNSProcess() error {
 		if err != nil {
 			wailsRuntime.LogWarning(a.ctx, "Failed to create stop signal file: "+err.Error())
 			// Fall back to kill method
-			return a.killMacOSProcess()
+			return false, a.killMacOSProcess()
 		}
 		stopFile.Close()
 		wailsRuntime.LogInfo(a.ctx, "Stop signal file created, waiting for stealth-dns graceful shutdown...")
@@ -699,7 +704,7 @@ func (a *App) killStealthDNSProcess() error {
 				if !strings.Contains(string(output), "stealth-dns") || !strings.Contains(string(output), "run") {
 					wailsRuntime.LogInfo(a.ctx, "stealth-dns process gracefully shut down")
 					os.Remove(stopFilePath) // Clean up signal file
-					return nil
+					return true, nil        // Graceful shutdown
 				}
 			}
 		}
@@ -708,7 +713,7 @@ func (a *App) killStealthDNSProcess() error {
 
 		// Fall back to kill method if signal file didn't work
 		wailsRuntime.LogInfo(a.ctx, "Signal file method failed, falling back to kill method")
-		return a.killMacOSProcess()
+		return false, a.killMacOSProcess()
 
 	case "linux":
 		// Linux: Use pkexec or sudo to execute killall/pkill
@@ -737,22 +742,40 @@ func (a *App) killStealthDNSProcess() error {
 		checkOutput, _ := checkCmd.Output()
 		if !strings.Contains(string(checkOutput), "stealth-dns.exe") {
 			wailsRuntime.LogInfo(a.ctx, "stealth-dns.exe is not running")
-			return nil
+			return true, nil // Not running, treat as graceful (no DNS restore needed)
 		}
 
 		// Method 1: Create stop signal file for graceful shutdown (NO ADMIN NEEDED)
 		// The signal file must be in the same directory as stealth-dns.exe
 		// stealth-dns uses os.Executable() to determine its directory
 		stopFilePath := filepath.Join(filepath.Dir(a.exePath), ".stealth-dns-stop")
-		wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("UI exePath: %s", a.exePath))
-		wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("Creating stop signal file: %s", stopFilePath))
+		debugLogPath := filepath.Join(filepath.Dir(a.exePath), "logs", "stop-debug.log")
+
+		// Create debug log
+		debugLog := func(msg string) {
+			f, _ := os.OpenFile(debugLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if f != nil {
+				f.WriteString(time.Now().Format("15:04:05") + " " + msg + "\n")
+				f.Close()
+			}
+			wailsRuntime.LogInfo(a.ctx, msg)
+		}
+
+		debugLog(fmt.Sprintf("UI exePath: %s", a.exePath))
+		debugLog(fmt.Sprintf("Creating stop signal file: %s", stopFilePath))
 
 		stopFile, err := os.Create(stopFilePath)
 		if err != nil {
-			wailsRuntime.LogWarning(a.ctx, "Failed to create stop signal file: "+err.Error())
+			debugLog("ERROR: Failed to create stop signal file: " + err.Error())
 		} else {
 			stopFile.Close()
-			wailsRuntime.LogInfo(a.ctx, "Stop signal file created, waiting for stealth-dns graceful shutdown...")
+
+			// Verify the file was created
+			if _, statErr := os.Stat(stopFilePath); statErr != nil {
+				debugLog("ERROR: Signal file verification failed: " + statErr.Error())
+			} else {
+				debugLog("Signal file created and verified OK")
+			}
 
 			// Wait for process to exit (max 8 seconds - longer wait time)
 			for i := 0; i < 16; i++ {
@@ -761,13 +784,24 @@ func (a *App) killStealthDNSProcess() error {
 				checkCmd := exec.Command("tasklist", "/FI", "IMAGENAME eq stealth-dns.exe", "/NH")
 				hideWindow(checkCmd)
 				output, _ := checkCmd.Output()
-				if !strings.Contains(string(output), "stealth-dns.exe") {
-					wailsRuntime.LogInfo(a.ctx, "stealth-dns.exe gracefully shut down via signal file")
+				outputStr := string(output)
+				if !strings.Contains(outputStr, "stealth-dns.exe") {
+					debugLog("SUCCESS: stealth-dns.exe gracefully shut down via signal file")
 					os.Remove(stopFilePath) // Clean up signal file
-					return nil
+					return true, nil        // Graceful shutdown - stealth-dns restored DNS itself
+				}
+				// Log every 2 seconds
+				if i%4 == 3 {
+					debugLog(fmt.Sprintf("Still waiting... (%d/16), process still running", i+1))
 				}
 			}
-			wailsRuntime.LogWarning(a.ctx, "Timeout waiting, stealth-dns did not respond to stop signal")
+			debugLog("TIMEOUT: stealth-dns did not respond to stop signal after 8 seconds")
+			// Check if signal file still exists
+			if _, statErr := os.Stat(stopFilePath); statErr == nil {
+				debugLog("Signal file still exists - stealth-dns is not monitoring the correct path")
+			} else {
+				debugLog("Signal file was deleted but process didn't exit")
+			}
 			os.Remove(stopFilePath) // Clean up signal file
 		}
 
@@ -778,7 +812,7 @@ func (a *App) killStealthDNSProcess() error {
 		output, err := cmd.CombinedOutput()
 		if err == nil {
 			wailsRuntime.LogInfo(a.ctx, "taskkill execution successful (no admin needed)")
-			return nil
+			return false, nil // Force kill - UI needs to restore DNS
 		}
 		wailsRuntime.LogDebug(a.ctx, fmt.Sprintf("taskkill without admin failed: %v, output: %s", err, string(output)))
 
@@ -788,14 +822,14 @@ func (a *App) killStealthDNSProcess() error {
 		checkOutput, _ = checkCmd.Output()
 		if !strings.Contains(string(checkOutput), "stealth-dns.exe") {
 			wailsRuntime.LogInfo(a.ctx, "stealth-dns.exe stopped")
-			return nil
+			return false, nil // Force kill - UI needs to restore DNS
 		}
 
 		// Method 3: Only use admin privileges as last resort
 		wailsRuntime.LogWarning(a.ctx, "Process still running, requesting admin privileges...")
 		tmpFile, err := os.CreateTemp("", "stop_dns_*.bat")
 		if err != nil {
-			return fmt.Errorf("failed to create temp file: %v", err)
+			return false, fmt.Errorf("failed to create temp file: %v", err)
 		}
 		tmpPath := tmpFile.Name()
 		defer os.Remove(tmpPath)
@@ -812,25 +846,25 @@ func (a *App) killStealthDNSProcess() error {
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			wailsRuntime.LogWarning(a.ctx, fmt.Sprintf("Elevated taskkill failed: %v, output: %s", err, string(output)))
-			return err
+			return false, err
 		}
 		wailsRuntime.LogInfo(a.ctx, "stealth-dns.exe process stopped via elevated method")
-		return nil
+		return false, nil // Force kill - UI needs to restore DNS
 
 	default:
-		return fmt.Errorf("unsupported operating system: %s", goruntime.GOOS)
+		return false, fmt.Errorf("unsupported operating system: %s", goruntime.GOOS)
 	}
 
-	// Execute command
+	// Execute command (only reached for Linux)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// If process doesn't exist, it's not an error
 		wailsRuntime.LogDebug(a.ctx, fmt.Sprintf("Stop process command output: %s", string(output)))
-		return err
+		return false, err
 	}
 
 	wailsRuntime.LogInfo(a.ctx, "stealth-dns process stopped")
-	return nil
+	return false, nil // Linux uses kill, not graceful shutdown
 }
 
 // RestartDNS restarts DNS service
