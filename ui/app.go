@@ -1382,15 +1382,13 @@ func (a *App) getLinuxDNS() []string {
 func (a *App) getWindowsDNS() []string {
 	var dnsServers []string
 
-	// First check if DNS is from DHCP using netsh
+	// First check if DNS is from DHCP using netsh (check all interfaces)
 	isDHCP := false
-	if a.interfaceName != "" {
-		checkCmd := exec.Command("netsh", "interface", "ipv4", "show", "dnsservers", fmt.Sprintf("name=%s", a.interfaceName))
-		hideWindow(checkCmd)
-		checkOutput, err := checkCmd.Output()
-		if err == nil && strings.Contains(string(checkOutput), "DHCP") {
-			isDHCP = true
-		}
+	checkCmd := exec.Command("netsh", "interface", "ip", "show", "dns")
+	hideWindow(checkCmd)
+	checkOutput, err := checkCmd.Output()
+	if err == nil && strings.Contains(string(checkOutput), "DHCP") {
+		isDHCP = true
 	}
 
 	// Use PowerShell to get DNS configuration (hidden window)
@@ -1399,33 +1397,32 @@ func (a *App) getWindowsDNS() []string {
 	hideWindow(cmd)
 	output, err := cmd.Output()
 	if err != nil {
-		// Fall back to netsh
-		cmd = exec.Command("netsh", "interface", "ip", "show", "dns")
-		output, err = cmd.Output()
-		if err != nil {
-			wailsRuntime.LogWarning(a.ctx, "Failed to get Windows DNS: "+err.Error())
-			return dnsServers
-		}
+		// Fall back to netsh - parse the output we already have
+		if checkOutput != nil {
+			lines := strings.Split(string(checkOutput), "\n")
+			seen := make(map[string]bool)
 
-		lines := strings.Split(string(output), "\n")
-		seen := make(map[string]bool)
-
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			// Match IP address format
-			if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+\.\d+$`, line); matched {
-				if !seen[line] {
-					seen[line] = true
-					// If DHCP mode and not 127.0.0.1 (StealthDNS local proxy), append "DHCP"
-					if isDHCP && line != "127.0.0.1" {
-						dnsServers = append(dnsServers, line+" (DHCP)")
-					} else {
-						dnsServers = append(dnsServers, line)
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				// Match IP address format
+				if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+\.\d+`, line); matched {
+					// Extract first IP address from line
+					parts := strings.Fields(line)
+					if len(parts) > 0 {
+						ip := parts[0]
+						if !seen[ip] {
+							seen[ip] = true
+							// If DHCP mode and not 127.0.0.1 (StealthDNS local proxy), append "DHCP"
+							if isDHCP && ip != "127.0.0.1" {
+								dnsServers = append(dnsServers, ip+" (DHCP)")
+							} else {
+								dnsServers = append(dnsServers, ip)
+							}
+						}
 					}
 				}
 			}
 		}
-
 		return dnsServers
 	}
 
