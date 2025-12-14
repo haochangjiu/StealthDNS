@@ -35,7 +35,7 @@ export function StatusPanel({
     isProxyActive: false
   })
 
-  // 获取系统 DNS 信息
+  // Fetch system DNS information
   useEffect(() => {
     const fetchDNSInfo = async () => {
       try {
@@ -47,12 +47,12 @@ export function StatusPanel({
     }
 
     fetchDNSInfo()
-    // 每 5 秒刷新一次
-    const interval = setInterval(fetchDNSInfo, 5000)
+    // Refresh every 1 second
+    const interval = setInterval(fetchDNSInfo, 1000)
     return () => clearInterval(interval)
   }, [status.running])
 
-  // 根据状态码获取本地化消息
+  // Get localized message based on status code
   const getStatusMessage = (messageCode: string): string => {
     const statusMessages: Record<string, string> = {
       'status_running': t.status.messageRunning,
@@ -66,7 +66,7 @@ export function StatusPanel({
 
   return (
     <div className="status-panel">
-      {/* 状态指示器 */}
+      {/* Status indicator */}
       <div className="status-indicator">
         <div className={`status-orb ${status.running ? 'running' : 'stopped'}`}>
           <div className="orb-inner"></div>
@@ -83,18 +83,18 @@ export function StatusPanel({
         </div>
       </div>
 
-      {/* 控制按钮 */}
+      {/* Control buttons */}
       <div className="control-buttons">
         {!status.running ? (
           <button 
             className="btn btn-primary btn-large"
             onClick={onStart}
-            disabled={loading}
+            disabled={loading || status.message === 'status_starting'}
           >
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
               <path d="M8 5v14l11-7z"/>
             </svg>
-            {loading ? t.status.starting : t.status.startService}
+            {(loading || status.message === 'status_starting') ? t.status.starting : t.status.startService}
           </button>
         ) : (
           <>
@@ -122,7 +122,7 @@ export function StatusPanel({
         )}
       </div>
 
-      {/* 自动重启设置 */}
+      {/* Auto restart settings */}
       <div className="settings-section">
         <h3 className="section-title">{t.tabs.settings}</h3>
         <div className="setting-item">
@@ -141,7 +141,7 @@ export function StatusPanel({
         </div>
       </div>
 
-      {/* 状态信息卡片 */}
+      {/* Status information cards */}
       <div className="info-cards info-cards-row">
         <div className="info-card info-card-dns">
           <div className="info-icon">

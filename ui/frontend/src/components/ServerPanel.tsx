@@ -35,7 +35,7 @@ export function ServerPanel({ servers, loading, onSave }: ServerPanelProps) {
       ip: '',
       port: 62206,
       pubKeyBase64: '',
-      expireTime: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60 // 1年后过期
+      expireTime: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60 // Expires in 1 year
     }
     setFormData(prev => [...prev, newServer])
     setExpandedIndex(formData.length)
@@ -44,7 +44,7 @@ export function ServerPanel({ servers, loading, onSave }: ServerPanelProps) {
 
   const handleRemoveServer = (index: number) => {
     if (formData.length <= 1) {
-      return // 至少保留一个服务器
+      return // Keep at least one server
     }
     setFormData(prev => prev.filter((_, i) => i !== index))
     setHasChanges(true)

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import '../styles/LogPanel.css'
 
-// 日志类型定义（使用全局类型）
+// Log type definitions (using global types)
 interface LogEntry {
   timestamp: string
   level: string
@@ -29,7 +29,7 @@ export function LogPanel() {
   const logContainerRef = useRef<HTMLDivElement>(null)
   const lastSizeRef = useRef<number>(0)
 
-  // 加载日志文件列表
+  // Load log file list
   const loadLogFiles = useCallback(async () => {
     try {
       const files = await window.go.main.App.GetLogFiles()
@@ -42,7 +42,7 @@ export function LogPanel() {
     }
   }, [selectedFile])
 
-  // 加载日志内容
+  // Load log content
   const loadLogContent = useCallback(async () => {
     if (!selectedFile) return
     
@@ -50,9 +50,9 @@ export function LogPanel() {
     try {
       const entries = await window.go.main.App.GetLogContent(selectedFile, 500)
       setLogEntries(entries || [])
-      lastSizeRef.current = 0 // 重置，下次从头开始监听
+      lastSizeRef.current = 0 // Reset, start listening from beginning next time
       
-      // 滚动到底部
+      // Scroll to bottom
       if (autoScroll && logContainerRef.current) {
         setTimeout(() => {
           logContainerRef.current?.scrollTo({
@@ -68,7 +68,7 @@ export function LogPanel() {
     }
   }, [selectedFile, autoScroll])
 
-  // 刷新新日志
+  // Refresh new logs
   const refreshLogs = useCallback(async () => {
     if (!selectedFile || !autoRefresh) return
     
@@ -92,7 +92,7 @@ export function LogPanel() {
     }
   }, [selectedFile, autoRefresh, autoScroll])
 
-  // 清空日志
+  // Clear logs
   const handleClearLog = async () => {
     if (!selectedFile) return
     
@@ -105,19 +105,19 @@ export function LogPanel() {
     }
   }
 
-  // 初始加载
+  // Initial load
   useEffect(() => {
     loadLogFiles()
   }, [loadLogFiles])
 
-  // 当选择的文件变化时加载内容
+  // Load content when selected file changes
   useEffect(() => {
     if (selectedFile) {
       loadLogContent()
     }
   }, [selectedFile, loadLogContent])
 
-  // 自动刷新
+  // Auto refresh
   useEffect(() => {
     if (!autoRefresh) return
     
@@ -125,20 +125,20 @@ export function LogPanel() {
     return () => clearInterval(interval)
   }, [autoRefresh, refreshLogs])
 
-  // 过滤日志
+  // Filter logs
   const filteredEntries = logEntries.filter(entry => {
-    // 级别过滤
+    // Level filter
     if (levelFilter !== 'ALL' && entry.level !== levelFilter) {
       return false
     }
-    // 文本过滤
+    // Text filter
     if (filter && !entry.raw.toLowerCase().includes(filter.toLowerCase())) {
       return false
     }
     return true
   })
 
-  // 获取日志级别样式
+  // Get log level style
   const getLevelClass = (level: string) => {
     switch (level?.toUpperCase()) {
       case 'ERROR':
@@ -157,7 +157,7 @@ export function LogPanel() {
     }
   }
 
-  // 格式化文件大小
+  // Format file size
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -173,10 +173,10 @@ export function LogPanel() {
         </div>
       </div>
 
-      {/* 工具栏 */}
+      {/* Toolbar */}
       <div className="log-toolbar">
         <div className="toolbar-left">
-          {/* 文件选择 */}
+          {/* File selection */}
           <select 
             className="form-select file-select"
             value={selectedFile}
@@ -193,7 +193,7 @@ export function LogPanel() {
             )}
           </select>
 
-          {/* 级别过滤 */}
+          {/* Level filter */}
           <select 
             className="form-select level-select"
             value={levelFilter}
@@ -207,7 +207,7 @@ export function LogPanel() {
             <option value="TRACE">TRACE</option>
           </select>
 
-          {/* 搜索过滤 */}
+          {/* Search filter */}
           <div className="search-input">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -223,7 +223,7 @@ export function LogPanel() {
         </div>
 
         <div className="toolbar-right">
-          {/* 自动滚动 */}
+          {/* Auto scroll */}
           <label className="toolbar-toggle">
             <input
               type="checkbox"
@@ -233,7 +233,7 @@ export function LogPanel() {
             <span>{t.logs.autoScroll}</span>
           </label>
 
-          {/* 自动刷新 */}
+          {/* Auto refresh */}
           <label className="toolbar-toggle">
             <input
               type="checkbox"
@@ -243,7 +243,7 @@ export function LogPanel() {
             <span>{t.logs.autoRefresh}</span>
           </label>
 
-          {/* 刷新按钮 */}
+          {/* Refresh button */}
           <button 
             className="btn btn-icon"
             onClick={loadLogContent}
@@ -255,7 +255,7 @@ export function LogPanel() {
             </svg>
           </button>
 
-          {/* 清空按钮 */}
+          {/* Clear button */}
           <button 
             className="btn btn-icon btn-danger-icon"
             onClick={handleClearLog}
@@ -268,7 +268,7 @@ export function LogPanel() {
         </div>
       </div>
 
-      {/* 日志内容 */}
+      {/* Log content */}
       <div className="log-container" ref={logContainerRef}>
         {loading && logEntries.length === 0 ? (
           <div className="log-loading">
@@ -301,7 +301,7 @@ export function LogPanel() {
         )}
       </div>
 
-      {/* 状态栏 */}
+      {/* Status bar */}
       <div className="log-statusbar">
         <span>{t.logs.entries}: {filteredEntries.length}</span>
         {filter && <span>{t.logs.filtered}: {logEntries.length - filteredEntries.length}</span>}

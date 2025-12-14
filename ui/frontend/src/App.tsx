@@ -8,7 +8,7 @@ import { TitleBar } from './components/TitleBar'
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
 import './styles/App.css'
 
-// 日志相关类型
+// Log related types
 interface LogEntry {
   timestamp: string
   level: string
@@ -27,14 +27,14 @@ interface WatchLogResult {
   size: number
 }
 
-// 系统 DNS 信息类型
+// System DNS information type
 interface SystemDNSInfo {
   dnsServers: string[]
   listenPort: number
   isProxyActive: boolean
 }
 
-// Wails 运行时类型
+// Wails runtime types
 declare global {
   interface Window {
     go: {
@@ -52,12 +52,12 @@ declare global {
           SaveServerConfig: (servers: ServerConfig[]) => Promise<void>
           MinimizeToTray: () => Promise<void>
           Quit: () => Promise<void>
-          // 日志相关方法
+          // Log related methods
           GetLogFiles: () => Promise<LogFile[]>
           GetLogContent: (filename: string, lines: number) => Promise<LogEntry[]>
           WatchLogFile: (filename: string, lastSize: number) => Promise<WatchLogResult>
           ClearLogFile: (filename: string) => Promise<void>
-          // 系统 DNS 信息
+          // System DNS information
           GetSystemDNS: () => Promise<SystemDNSInfo>
         }
       }
@@ -112,13 +112,13 @@ function AppContent() {
   const [loading, setLoading] = useState(false)
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
-  // 显示通知
+  // Show notification
   const showNotification = useCallback((type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 3000)
   }, [])
 
-  // 加载状态
+  // Load status
   const loadStatus = useCallback(async () => {
     try {
       const s = await window.go.main.App.GetStatus()
@@ -130,7 +130,7 @@ function AppContent() {
     }
   }, [])
 
-  // 加载配置
+  // Load configuration
   const loadConfig = useCallback(async () => {
     try {
       const cc = await window.go.main.App.GetClientConfig()
@@ -146,30 +146,57 @@ function AppContent() {
     loadStatus()
     loadConfig()
 
-    // 监听状态变化事件
+    // Listen for status change events
     const unsubscribe = window.runtime.EventsOn('dns:status', (data: unknown) => {
       setStatus(data as ServiceStatus)
     })
 
+    // Periodically refresh status to ensure UI is in sync
+    // GetStatus() now automatically checks actual process state and syncs internal state
+    const refreshStatus = async () => {
+      try {
+        const status = await window.go.main.App.GetStatus()
+        setStatus(status)
+      } catch (err) {
+        console.error('Failed to refresh status:', err)
+      }
+    }
+
+    // Refresh immediately once
+    refreshStatus()
+    // Refresh status every 1 second to ensure UI stays in sync
+    const statusRefreshInterval = setInterval(refreshStatus, 1000)
+
     return () => {
       unsubscribe()
+      clearInterval(statusRefreshInterval)
     }
   }, [loadStatus, loadConfig])
 
-  // 启动服务
+  // Clear loading state when service status changes to running or stopped
+  useEffect(() => {
+    if (status.running || status.message === 'status_stopped') {
+      setLoading(false)
+    }
+  }, [status.running, status.message])
+
+  // Start service
   const handleStart = async () => {
     setLoading(true)
     try {
       await window.go.main.App.StartDNS()
-      showNotification('success', t.messages.serviceStarted)
+      // Don't set loading = false immediately
+      // The status will be updated to "starting" and then "running" when the process is detected
+      // The button will show "starting..." based on status.message === 'status_starting'
+      // Only set loading = false if there's an error
     } catch (err) {
-      showNotification('error', `${t.messages.startFailed}: ${err}`)
-    } finally {
       setLoading(false)
+      showNotification('error', `${t.messages.startFailed}: ${err}`)
     }
+    // Note: loading will be set to false when status changes to "running" or "stopped"
   }
 
-  // 停止服务
+  // Stop service
   const handleStop = async () => {
     setLoading(true)
     try {
@@ -182,7 +209,7 @@ function AppContent() {
     }
   }
 
-  // 重启服务
+  // Restart service
   const handleRestart = async () => {
     setLoading(true)
     try {
@@ -195,7 +222,7 @@ function AppContent() {
     }
   }
 
-  // 切换自动重启
+  // Toggle auto restart
   const handleAutoRestartToggle = async () => {
     try {
       await window.go.main.App.SetAutoRestart(!autoRestart)
@@ -205,7 +232,7 @@ function AppContent() {
     }
   }
 
-  // 保存客户端配置
+  // Save client configuration
   const handleSaveClientConfig = async (config: ClientConfig) => {
     setLoading(true)
     try {
@@ -219,7 +246,7 @@ function AppContent() {
     }
   }
 
-  // 保存服务器配置
+  // Save server configuration
   const handleSaveServerConfig = async (servers: ServerConfig[]) => {
     setLoading(true)
     try {
@@ -233,7 +260,7 @@ function AppContent() {
     }
   }
 
-  // 最小化到托盘
+  // Minimize to tray
   const handleMinimize = async () => {
     try {
       await window.go.main.App.MinimizeToTray()
@@ -242,7 +269,7 @@ function AppContent() {
     }
   }
 
-  // 退出应用
+  // Quit application
   const handleQuit = async () => {
     try {
       await window.go.main.App.Quit()
@@ -255,14 +282,14 @@ function AppContent() {
     <div className="app">
       <TitleBar onMinimize={handleMinimize} onQuit={handleQuit} />
       
-      {/* 通知 */}
+      {/* Notification */}
       {notification && (
         <div className={`notification ${notification.type}`}>
           {notification.message}
         </div>
       )}
 
-      {/* 标签导航 */}
+      {/* Tab navigation */}
       <nav className="tabs">
         <button 
           className={`tab ${activeTab === 'status' ? 'active' : ''}`}
@@ -311,7 +338,7 @@ function AppContent() {
         </button>
       </nav>
 
-      {/* 内容区域 */}
+      {/* Content area */}
       <main className="content">
         {activeTab === 'status' && (
           <StatusPanel

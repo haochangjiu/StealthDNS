@@ -7,7 +7,7 @@ interface TitleBarProps {
   onQuit: () => void
 }
 
-// 检测是否为 macOS
+// Detect if running on macOS
 function isMacOS(): boolean {
   return navigator.platform.toUpperCase().indexOf('MAC') >= 0 || 
          navigator.userAgent.toUpperCase().indexOf('MAC') >= 0
@@ -22,7 +22,7 @@ export function TitleBar({ onMinimize, onQuit }: TitleBarProps) {
     setIsMac(isMacOS())
   }, [])
 
-  // 切换最大化/还原
+  // Toggle maximize/restore
   const handleToggleMaximize = () => {
     if (isMaximized) {
       window.runtime.WindowUnmaximise()

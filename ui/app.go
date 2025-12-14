@@ -162,10 +162,119 @@ type ServiceStatus struct {
 	Message      string `json:"message"`
 }
 
+// checkStealthDNSProcess checks if stealth-dns process is actually running
+// It excludes launcher processes (osascript, pkexec, etc.) and only checks for the actual stealth-dns process
+func (a *App) checkStealthDNSProcess() bool {
+	switch goruntime.GOOS {
+	case "darwin", "linux":
+		// Check if stealth-dns process is running
+		// Exclude launcher processes like osascript, pkexec, sudo, etc.
+		psCmd := exec.Command("ps", "aux")
+		output, err := psCmd.Output()
+		if err == nil {
+			scanner := bufio.NewScanner(strings.NewReader(string(output)))
+			for scanner.Scan() {
+				line := scanner.Text()
+				// Check if line contains "stealth-dns" and "run"
+				if strings.Contains(line, "stealth-dns") && strings.Contains(line, "run") {
+					// Exclude launcher processes
+					// Launcher processes will have "osascript", "pkexec", "sudo", etc. as the process name
+					// The actual stealth-dns process will have "stealth-dns" as the process name or in the command path
+					fields := strings.Fields(line)
+					if len(fields) >= 11 {
+						// In "ps aux" output, fields are: USER, PID, %CPU, %MEM, VSZ, RSS, TT, STAT, START, TIME, COMMAND...
+						// The COMMAND field starts at index 10 (11th field)
+						processName := fields[10] // First part of COMMAND (executable name)
+
+						// Skip if this is a launcher process
+						if strings.Contains(processName, "osascript") ||
+							strings.Contains(processName, "pkexec") ||
+							strings.Contains(processName, "sudo") ||
+							strings.Contains(processName, "zenity") {
+							continue // Skip launcher processes
+						}
+
+						// Check if this is the actual stealth-dns process
+						// The process name should be "stealth-dns" or the command should contain "/stealth-dns"
+						command := strings.Join(fields[10:], " ")
+						if processName == "stealth-dns" || strings.Contains(command, "/stealth-dns") {
+							return true
+						}
+					}
+				}
+			}
+		}
+		return false
+	case "windows":
+		// Check if stealth-dns.exe process is running
+		cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq stealth-dns.exe", "/NH")
+		hideWindow(cmd)
+		output, err := cmd.Output()
+		if err == nil {
+			return strings.Contains(string(output), "stealth-dns.exe")
+		}
+		return false
+	default:
+		return false
+	}
+}
+
 // GetStatus gets DNS service status
+// It checks both the internal state (a.running) and the actual process state
+// to ensure accuracy, especially on macOS where a.process points to osascript
+// rather than the actual stealth-dns child process
 func (a *App) GetStatus() ServiceStatus {
 	a.processLock.Lock()
 	defer a.processLock.Unlock()
+
+	// If we're in a starting state (launcher started but actual process not confirmed yet),
+	// check if the actual stealth-dns process is running
+	// Only update to running if we're in starting state AND process is confirmed running
+	isStarting := a.process != nil && !a.running
+
+	if isStarting {
+		// We're in starting state, check if actual process is running
+		actualRunning := a.checkStealthDNSProcess()
+		if actualRunning {
+			// Process confirmed running, update state
+			wailsRuntime.LogInfo(a.ctx, "Process confirmed running, updating status from starting to running")
+			a.running = true
+			if a.trayManager != nil {
+				a.trayManager.UpdateStatus(true)
+			}
+			// Emit status event to notify UI that process is now running
+			wailsRuntime.EventsEmit(a.ctx, "dns:status", ServiceStatus{
+				Running:      true,
+				RestartCount: a.restartCount,
+				Message:      "status_started",
+			})
+		}
+		// If not running yet, stay in starting state (don't update a.running)
+	} else {
+		// Not in starting state, sync with actual process state (for normal status checks)
+		actualRunning := a.checkStealthDNSProcess()
+		if actualRunning != a.running {
+			if actualRunning {
+				wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("Process detected as running, updating status from %v to %v", a.running, actualRunning))
+			} else {
+				wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("State mismatch detected: internal=%v, actual=%v, syncing...", a.running, actualRunning))
+			}
+			a.running = actualRunning
+
+			// If process just started, update tray status and emit event
+			if actualRunning {
+				if a.trayManager != nil {
+					a.trayManager.UpdateStatus(true)
+				}
+				// Emit status event to notify UI that process is now running
+				wailsRuntime.EventsEmit(a.ctx, "dns:status", ServiceStatus{
+					Running:      true,
+					RestartCount: a.restartCount,
+					Message:      "status_started",
+				})
+			}
+		}
+	}
 
 	return ServiceStatus{
 		Running:      a.running,
@@ -174,9 +283,20 @@ func (a *App) GetStatus() ServiceStatus {
 	}
 }
 
+// IsProcessRunning checks if stealth-dns process is actually running
+// Deprecated: Use GetStatus() instead, which includes process state checking
+func (a *App) IsProcessRunning() bool {
+	return a.checkStealthDNSProcess()
+}
+
 func (a *App) getStatusMessage() string {
 	if a.running {
 		return "status_running"
+	}
+	// Check if we're in a starting state (process launcher started but actual process not detected yet)
+	// This is indicated by a.process != nil but a.running == false
+	if a.process != nil && !a.running {
+		return "status_starting"
 	}
 	return "status_stopped"
 }
@@ -245,22 +365,27 @@ func (a *App) startProcess() error {
 	}
 
 	a.process = cmd
-	a.running = true
+	// Don't set a.running = true immediately
+	// Let GetStatus() detect the actual process state and update it
+	// This ensures the UI shows "starting..." until the process is actually running
+	a.running = false
 
 	// Start monitoring goroutine
 	go a.monitorProcess()
 
-	wailsRuntime.LogInfo(a.ctx, "DNS service started (with admin privileges)")
+	wailsRuntime.LogInfo(a.ctx, "DNS service launcher started, waiting for actual process to start...")
+	// Send "starting" status instead of "started"
+	// The UI will automatically update to "running" when GetStatus() detects the actual process
 	wailsRuntime.EventsEmit(a.ctx, "dns:status", ServiceStatus{
-		Running:      true,
+		Running:      false,
 		RestartCount: a.restartCount,
-		Message:      "status_started",
+		Message:      "status_starting",
 	})
 
-	// Update tray status
-	if a.trayManager != nil {
-		a.trayManager.UpdateStatus(true)
-	}
+	// Don't update tray status yet, wait for actual process to start
+	// if a.trayManager != nil {
+	// 	a.trayManager.UpdateStatus(true)
+	// }
 
 	return nil
 }

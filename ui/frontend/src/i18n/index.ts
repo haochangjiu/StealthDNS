@@ -1,4 +1,4 @@
-// 多语言支持
+// Multi-language support
 
 export type Language = 'zh-CN' | 'en-US' | 'ja-JP' | 'ko-KR' | 'de-DE' | 'fr-FR'
 
@@ -18,12 +18,12 @@ export const languages: LanguageOption[] = [
 ]
 
 export interface Translations {
-  // 通用
+  // Common
   app: {
     title: string
     version: string
   }
-  // 标签页
+  // Tabs
   tabs: {
     status: string
     clientConfig: string
@@ -31,7 +31,7 @@ export interface Translations {
     logs: string
     settings: string
   }
-  // 状态面板
+  // Status panel
   status: {
     running: string
     stopped: string
@@ -47,17 +47,17 @@ export interface Translations {
     restartCount: string
     listenPort: string
     nhpDomain: string
-    // 状态消息
+    // Status messages
     messageRunning: string
     messageStopped: string
     messageStarted: string
     messageStarting: string
     messageStopping: string
-    // DNS 信息
+    // DNS information
     currentDNS: string
     loading: string
   }
-  // 客户端配置
+  // Client configuration
   clientConfig: {
     title: string
     description: string
@@ -73,7 +73,7 @@ export interface Translations {
     saving: string
     unsavedChanges: string
   }
-  // 服务器配置
+  // Server configuration
   serverConfig: {
     title: string
     description: string
@@ -94,7 +94,7 @@ export interface Translations {
     saving: string
     unsavedChanges: string
   }
-  // 设置
+  // Settings
   settings: {
     title: string
     language: string
@@ -104,12 +104,12 @@ export interface Translations {
     darkTheme: string
     lightTheme: string
   }
-  // 加密方案
+  // Cipher scheme
   cipherSchemes: {
     gmsm: string
     curve25519: string
   }
-  // 日志级别
+  // Log level
   logLevels: {
     silent: string
     error: string
@@ -118,7 +118,7 @@ export interface Translations {
     debug: string
     trace: string
   }
-  // 通知消息
+  // Notification messages
   messages: {
     serviceStarted: string
     serviceStopped: string
@@ -130,14 +130,14 @@ export interface Translations {
     saveFailed: string
     serverConfigSaved: string
   }
-  // 标题栏
+  // Title bar
   titleBar: {
     minimize: string
     maximize: string
     restore: string
     quit: string
   }
-  // 日志
+  // Logs
   logs: {
     title: string
     description: string
@@ -156,7 +156,7 @@ export interface Translations {
   }
 }
 
-// 简体中文
+// Simplified Chinese
 const zhCN: Translations = {
   app: {
     title: 'StealthDNS',
@@ -410,7 +410,7 @@ const enUS: Translations = {
   },
 }
 
-// 日本語
+// Japanese
 const jaJP: Translations = {
   app: {
     title: 'StealthDNS',
@@ -918,7 +918,7 @@ const frFR: Translations = {
   },
 }
 
-// 翻译映射
+// Translation mapping
 const translations: Record<Language, Translations> = {
   'zh-CN': zhCN,
   'en-US': enUS,
@@ -928,21 +928,21 @@ const translations: Record<Language, Translations> = {
   'fr-FR': frFR,
 }
 
-// 获取翻译
+// Get translation
 export function getTranslations(lang: Language): Translations {
   return translations[lang] || translations['en-US']
 }
 
-// 获取浏览器默认语言
+// Get browser default language
 export function getBrowserLanguage(): Language {
   const browserLang = navigator.language
   
-  // 精确匹配
+  // Exact match
   if (browserLang in translations) {
     return browserLang as Language
   }
   
-  // 语言代码匹配 (例如 zh -> zh-CN)
+  // Language code match (e.g., zh -> zh-CN)
   const langCode = browserLang.split('-')[0]
   const match = Object.keys(translations).find(key => key.startsWith(langCode))
   if (match) {
@@ -952,7 +952,7 @@ export function getBrowserLanguage(): Language {
   return 'en-US'
 }
 
-// 从本地存储获取语言设置
+// Get language setting from local storage
 export function getStoredLanguage(): Language {
   const stored = localStorage.getItem('stealthdns-language')
   if (stored && stored in translations) {
@@ -961,7 +961,7 @@ export function getStoredLanguage(): Language {
   return getBrowserLanguage()
 }
 
-// 保存语言设置到本地存储
+// Save language setting to local storage
 export function setStoredLanguage(lang: Language): void {
   localStorage.setItem('stealthdns-language', lang)
 }
