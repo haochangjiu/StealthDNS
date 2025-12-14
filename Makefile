@@ -102,6 +102,7 @@ ui-init:
 
 ui-build:
 	@echo "[StealthDNS UI] Building UI package..."
+	@rm -rf ui/build/bin
 ifeq ($(OS_NAME), windows)
 	@WAILS_CMD=$$(command -v wails 2>/dev/null || echo "$(GOBIN)/wails"); \
 	if [ ! -f "$$WAILS_CMD" ] && [ ! -x "$$WAILS_CMD" ]; then \
@@ -120,8 +121,9 @@ else ifeq ($(OS_NAME), darwin)
 		exit 1; \
 	fi; \
 	cd ui && PATH="$(GOBIN):$$PATH" $$WAILS_CMD build -platform darwin/universal
+	rm -rf ./release/stealthdns-ui.app
 	cp -r ./ui/build/bin/stealthdns-ui.app ./release/ 2>/dev/null || \
-	cp ./ui/build/bin/stealthdns-ui ./release/
+		cp ./ui/build/bin/stealthdns-ui ./release/
 	@cd ui/frontend && git checkout wailsjs/ 2>/dev/null || true
 else
 	@WAILS_CMD=$$(command -v wails 2>/dev/null || echo "$(GOBIN)/wails"); \
