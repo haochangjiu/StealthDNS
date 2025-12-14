@@ -128,6 +128,8 @@ func runApp() error {
 
 	// Clean up any residual stop signal file
 	stopFilePath := filepath.Join(exeDirPath, ".stealth-dns-stop")
+	fmt.Printf("StealthDNS exe path: %s\n", exeFilePath)
+	fmt.Printf("StealthDNS stop signal file path: %s\n", stopFilePath)
 	os.Remove(stopFilePath)
 
 	p := &dns.ProxyService{}

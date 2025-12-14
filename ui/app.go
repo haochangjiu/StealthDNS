@@ -437,9 +437,11 @@ func (a *App) createWindowsElevatedCommand() *exec.Cmd {
 	// Note: Use -Wait to properly monitor process status
 	// Use -PassThru to get process object
 	// Use -WindowStyle Hidden to hide the launched process window
+	// Use -WorkingDirectory to ensure correct working directory for signal file detection
+	workDir := filepath.Dir(a.exePath)
 	psScript := fmt.Sprintf(
-		`$p = Start-Process -FilePath '%s' -ArgumentList 'run' -Verb RunAs -PassThru -WindowStyle Hidden; $p.WaitForExit(); exit $p.ExitCode`,
-		a.exePath,
+		`$p = Start-Process -FilePath '%s' -ArgumentList 'run' -WorkingDirectory '%s' -Verb RunAs -PassThru -WindowStyle Hidden; $p.WaitForExit(); exit $p.ExitCode`,
+		a.exePath, workDir,
 	)
 	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", psScript)
 	// Hide PowerShell window itself
@@ -739,8 +741,11 @@ func (a *App) killStealthDNSProcess() error {
 		}
 
 		// Method 1: Create stop signal file for graceful shutdown (NO ADMIN NEEDED)
+		// The signal file must be in the same directory as stealth-dns.exe
+		// stealth-dns uses os.Executable() to determine its directory
 		stopFilePath := filepath.Join(filepath.Dir(a.exePath), ".stealth-dns-stop")
-		wailsRuntime.LogInfo(a.ctx, "Creating stop signal file: "+stopFilePath)
+		wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("UI exePath: %s", a.exePath))
+		wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("Creating stop signal file: %s", stopFilePath))
 
 		stopFile, err := os.Create(stopFilePath)
 		if err != nil {
