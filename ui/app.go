@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -18,24 +19,24 @@ import (
 
 // App application structure
 type App struct {
-	ctx            context.Context
-	process        *exec.Cmd
-	processLock    sync.Mutex
-	running        bool
-	autoRestart    bool
-	manualStopped  bool // Flag to mark manual stop, prevent auto-restart
-	restartCount   int
-	maxRestarts    int
-	lastRestartAt  time.Time
-	exePath        string
-	configPath     string
-	serverPath     string
-	trayManager    *TrayManager
+	ctx           context.Context
+	process       *exec.Cmd
+	processLock   sync.Mutex
+	running       bool
+	autoRestart   bool
+	manualStopped bool // Flag to mark manual stop, prevent auto-restart
+	restartCount  int
+	maxRestarts   int
+	lastRestartAt time.Time
+	exePath       string
+	configPath    string
+	serverPath    string
+	trayManager   *TrayManager
 	// DNS restore related
-	originalDNS       []string // Save original DNS settings
-	interfaceName     string   // Network interface name
-	dhcpEnabled       bool     // Whether DHCP is enabled
-	dnsBackedUp       bool     // Whether DNS is backed up
+	originalDNS   []string // Save original DNS settings
+	interfaceName string   // Network interface name
+	dhcpEnabled   bool     // Whether DHCP is enabled
+	dnsBackedUp   bool     // Whether DNS is backed up
 }
 
 // SetTrayManager sets the tray manager
@@ -354,10 +355,10 @@ func (a *App) monitorProcess() {
 		}
 		a.processLock.Unlock()
 		wailsRuntime.EventsEmit(a.ctx, "dns:status", ServiceStatus{
-		Running:      false,
-		RestartCount: a.restartCount,
-		Message:      "status_stopped",
-	})
+			Running:      false,
+			RestartCount: a.restartCount,
+			Message:      "status_stopped",
+		})
 		return
 	}
 
@@ -460,7 +461,7 @@ func (a *App) StopDNS() error {
 	if goruntime.GOOS == "windows" {
 		wailsRuntime.LogInfo(a.ctx, "Waiting for process to completely stop...")
 		time.Sleep(1 * time.Second)
-		
+
 		// Restore original DNS settings (as backup measure)
 		if needRestoreDNS && a.dnsBackedUp {
 			wailsRuntime.LogInfo(a.ctx, "Preparing to restore DNS settings (UI backup restore)...")
@@ -516,18 +517,18 @@ func (a *App) killStealthDNSProcess() error {
 	case "windows":
 		// Windows: Use signal file for graceful shutdown of stealth-dns
 		wailsRuntime.LogInfo(a.ctx, "Attempting to stop stealth-dns.exe process...")
-		
+
 		// Method 1: Create stop signal file for graceful shutdown
 		stopFilePath := filepath.Join(filepath.Dir(a.exePath), ".stealth-dns-stop")
 		wailsRuntime.LogInfo(a.ctx, "Creating stop signal file: "+stopFilePath)
-		
+
 		stopFile, err := os.Create(stopFilePath)
 		if err != nil {
 			wailsRuntime.LogWarning(a.ctx, "Failed to create stop signal file: "+err.Error())
 		} else {
 			stopFile.Close()
 			wailsRuntime.LogInfo(a.ctx, "Stop signal file created, waiting for stealth-dns graceful shutdown...")
-			
+
 			// Wait for process to exit (max 5 seconds)
 			for i := 0; i < 10; i++ {
 				time.Sleep(500 * time.Millisecond)
@@ -544,7 +545,7 @@ func (a *App) killStealthDNSProcess() error {
 			wailsRuntime.LogWarning(a.ctx, "Timeout waiting, stealth-dns did not respond to stop signal")
 			os.Remove(stopFilePath) // Clean up signal file
 		}
-		
+
 		// Method 2: If graceful shutdown fails, use taskkill to force terminate
 		wailsRuntime.LogInfo(a.ctx, "Attempting to force terminate with taskkill...")
 		cmd = exec.Command("taskkill", "/F", "/IM", "stealth-dns.exe")
@@ -555,7 +556,7 @@ func (a *App) killStealthDNSProcess() error {
 			return nil
 		}
 		wailsRuntime.LogDebug(a.ctx, fmt.Sprintf("Direct taskkill failed: %v, output: %s", err, string(output)))
-		
+
 		// Method 3: Create temp batch file to execute taskkill with admin privileges
 		tmpFile, err := os.CreateTemp("", "stop_dns_*.bat")
 		if err != nil {
@@ -563,12 +564,12 @@ func (a *App) killStealthDNSProcess() error {
 		}
 		tmpPath := tmpFile.Name()
 		defer os.Remove(tmpPath)
-		
+
 		// Write stop command
 		tmpFile.WriteString("@echo off\r\n")
 		tmpFile.WriteString("taskkill /F /IM stealth-dns.exe\r\n")
 		tmpFile.Close()
-		
+
 		// Use PowerShell for elevated execution
 		psScript := fmt.Sprintf(`Start-Process -FilePath '%s' -Verb RunAs -Wait -WindowStyle Hidden`, tmpPath)
 		cmd = exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", psScript)
@@ -619,7 +620,7 @@ func (a *App) backupWindowsDNS() {
 		`Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object RouteMetric | Select-Object -First 1 -ExpandProperty InterfaceAlias`)
 	hideWindow(cmd)
 	output, err := cmd.Output()
-	
+
 	if err != nil {
 		wailsRuntime.LogWarning(a.ctx, "PowerShell failed to get network interface, trying netsh: "+err.Error())
 		// Method 2: Use netsh to get interface name
@@ -674,12 +675,12 @@ func (a *App) backupWindowsDNS() {
 		// Parse netsh output
 		outputStr := string(output)
 		wailsRuntime.LogDebug(a.ctx, "netsh DNS output: "+outputStr)
-		
+
 		// Check if DHCP is enabled
 		if strings.Contains(outputStr, "DHCP") {
 			a.dhcpEnabled = true
 		}
-		
+
 		// Extract DNS addresses
 		lines := strings.Split(outputStr, "\n")
 		for _, line := range lines {
@@ -716,8 +717,8 @@ func (a *App) backupWindowsDNS() {
 		a.dhcpEnabled = true
 		a.dnsBackedUp = true
 	}
-	
-	wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("DNS backup complete: Interface=%s, DHCP=%v, DNS=%v", 
+
+	wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("DNS backup complete: Interface=%s, DHCP=%v, DNS=%v",
 		a.interfaceName, a.dhcpEnabled, a.originalDNS))
 }
 
@@ -737,15 +738,15 @@ func (a *App) restoreWindowsDNS() {
 		return
 	}
 
-	wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("Restoring DNS settings... Interface: %s, DHCP: %v, Original DNS: %v", 
+	wailsRuntime.LogInfo(a.ctx, fmt.Sprintf("Restoring DNS settings... Interface: %s, DHCP: %v, Original DNS: %v",
 		a.interfaceName, a.dhcpEnabled, a.originalDNS))
 
 	// Method 1: First try direct netsh command execution (if has permission)
 	var success bool
-	
+
 	if a.dhcpEnabled || len(a.originalDNS) == 0 {
 		// Restore to DHCP mode
-		cmd := exec.Command("netsh", "interface", "ipv4", "set", "dnsservers", 
+		cmd := exec.Command("netsh", "interface", "ipv4", "set", "dnsservers",
 			fmt.Sprintf("name=%s", a.interfaceName), "source=dhcp")
 		hideWindow(cmd)
 		output, err := cmd.CombinedOutput()
@@ -757,11 +758,11 @@ func (a *App) restoreWindowsDNS() {
 		}
 	} else {
 		// Restore to static DNS - first clear
-		cmd := exec.Command("netsh", "interface", "ip", "delete", "dns", 
+		cmd := exec.Command("netsh", "interface", "ip", "delete", "dns",
 			fmt.Sprintf("name=%s", a.interfaceName), "all")
 		hideWindow(cmd)
 		cmd.Run()
-		
+
 		// Set primary DNS
 		cmd = exec.Command("netsh", "interface", "ipv4", "set", "dns",
 			fmt.Sprintf("name=%s", a.interfaceName), "static", a.originalDNS[0], "primary")
@@ -785,7 +786,7 @@ func (a *App) restoreWindowsDNS() {
 	// Method 2: If direct execution fails, use elevated execution
 	if !success {
 		wailsRuntime.LogInfo(a.ctx, "Attempting to restore DNS with elevation...")
-		
+
 		// Create temp batch file
 		tmpFile, err := os.CreateTemp("", "restore_dns_*.bat")
 		if err != nil {
@@ -794,7 +795,7 @@ func (a *App) restoreWindowsDNS() {
 			return
 		}
 		tmpPath := tmpFile.Name()
-		
+
 		// Write restore commands
 		tmpFile.WriteString("@echo off\r\n")
 		if a.dhcpEnabled || len(a.originalDNS) == 0 {
@@ -807,15 +808,15 @@ func (a *App) restoreWindowsDNS() {
 			}
 		}
 		tmpFile.Close()
-		
+
 		// Use PowerShell to execute batch file with elevation
 		psScript := fmt.Sprintf(`Start-Process -FilePath '%s' -Verb RunAs -Wait -WindowStyle Hidden`, tmpPath)
 		cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", psScript)
 		hideWindow(cmd)
-		
+
 		output, err := cmd.CombinedOutput()
 		os.Remove(tmpPath) // Clean up temp file
-		
+
 		if err != nil {
 			wailsRuntime.LogWarning(a.ctx, fmt.Sprintf("Elevated DNS restore failed: %v, output: %s", err, string(output)))
 		} else {
@@ -1001,9 +1002,9 @@ func (a *App) Quit() {
 
 // SystemDNSInfo system DNS info
 type SystemDNSInfo struct {
-	DNSServers  []string `json:"dnsServers"`
-	ListenPort  int      `json:"listenPort"`
-	IsProxyActive bool   `json:"isProxyActive"`
+	DNSServers    []string `json:"dnsServers"`
+	ListenPort    int      `json:"listenPort"`
+	IsProxyActive bool     `json:"isProxyActive"`
 }
 
 // GetSystemDNS gets system DNS configuration
@@ -1035,7 +1036,19 @@ func (a *App) GetSystemDNS() SystemDNSInfo {
 func (a *App) getMacOSDNS() []string {
 	var dnsServers []string
 
-	// Use scutil --dns to get DNS configuration
+	// First, check if DNS is from DHCP by using networksetup
+	// This only shows manually configured DNS, so if it returns empty/error, it's DHCP
+	isDHCP := false
+	interfaceName := a.getMacOSInterfaceName()
+	if interfaceName != "" {
+		cmd := exec.Command("networksetup", "-getdnsservers", interfaceName)
+		output, err := cmd.Output()
+		if err != nil || strings.Contains(strings.TrimSpace(string(output)), "aren't any DNS Servers set") {
+			isDHCP = true
+		}
+	}
+
+	// Use scutil --dns to get actual DNS configuration (includes DHCP-assigned DNS)
 	cmd := exec.Command("scutil", "--dns")
 	output, err := cmd.Output()
 	if err != nil {
@@ -1045,7 +1058,7 @@ func (a *App) getMacOSDNS() []string {
 
 	lines := strings.Split(string(output), "\n")
 	seen := make(map[string]bool)
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "nameserver[") {
@@ -1054,13 +1067,47 @@ func (a *App) getMacOSDNS() []string {
 				dns := strings.TrimSpace(parts[1])
 				if dns != "" && !seen[dns] {
 					seen[dns] = true
-					dnsServers = append(dnsServers, dns)
+					// If DHCP mode and not 127.0.0.1 (StealthDNS local proxy), append "DHCP"
+					// 127.0.0.1 should always be displayed but never marked as DHCP
+					if isDHCP && dns != "127.0.0.1" {
+						dnsServers = append(dnsServers, dns+" (DHCP)")
+					} else {
+						dnsServers = append(dnsServers, dns)
+					}
 				}
 			}
 		}
 	}
 
 	return dnsServers
+}
+
+// getMacOSInterfaceName gets the active network interface name on macOS
+func (a *App) getMacOSInterfaceName() string {
+	cmd := exec.Command("networksetup", "-listallnetworkservices")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(string(output)))
+	for scanner.Scan() {
+		service := strings.TrimSpace(scanner.Text())
+		if service == "" || strings.HasPrefix(service, "*") {
+			continue
+		}
+		// Check if this service is active
+		cmd := exec.Command("networksetup", "-getinfo", service)
+		infoOutput, err := cmd.Output()
+		if err == nil {
+			infoStr := string(infoOutput)
+			if strings.Contains(infoStr, "IP address:") && !strings.Contains(infoStr, "IP address: 0.0.0.0") {
+				return service
+			}
+		}
+	}
+
+	return ""
 }
 
 // getLinuxDNS gets Linux system DNS
@@ -1073,7 +1120,7 @@ func (a *App) getLinuxDNS() []string {
 	if err == nil {
 		lines := strings.Split(string(output), "\n")
 		seen := make(map[string]bool)
-		
+
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
 			if strings.Contains(line, "DNS Servers:") || strings.HasPrefix(line, "DNS Server:") {
@@ -1087,7 +1134,7 @@ func (a *App) getLinuxDNS() []string {
 				}
 			}
 		}
-		
+
 		if len(dnsServers) > 0 {
 			return dnsServers
 		}
@@ -1102,7 +1149,7 @@ func (a *App) getLinuxDNS() []string {
 
 	lines := strings.Split(string(data), "\n")
 	seen := make(map[string]bool)
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "nameserver") {
@@ -1125,7 +1172,7 @@ func (a *App) getWindowsDNS() []string {
 	var dnsServers []string
 
 	// Use PowerShell to get DNS configuration (hidden window)
-	cmd := exec.Command("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", 
+	cmd := exec.Command("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command",
 		"Get-DnsClientServerAddress -AddressFamily IPv4 | Select-Object -ExpandProperty ServerAddresses | Select-Object -Unique")
 	hideWindow(cmd)
 	output, err := cmd.Output()
@@ -1137,10 +1184,10 @@ func (a *App) getWindowsDNS() []string {
 			wailsRuntime.LogWarning(a.ctx, "Failed to get Windows DNS: "+err.Error())
 			return dnsServers
 		}
-		
+
 		lines := strings.Split(string(output), "\n")
 		seen := make(map[string]bool)
-		
+
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
 			// Match IP address format
@@ -1151,13 +1198,13 @@ func (a *App) getWindowsDNS() []string {
 				}
 			}
 		}
-		
+
 		return dnsServers
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	seen := make(map[string]bool)
-	
+
 	for _, line := range lines {
 		dns := strings.TrimSpace(line)
 		if dns != "" && !seen[dns] {
@@ -1411,4 +1458,3 @@ func (a *App) ClearLogFile(filename string) error {
 	// Clear file
 	return os.WriteFile(logPath, []byte{}, 0644)
 }
-
