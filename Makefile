@@ -24,9 +24,9 @@ generate-version-and-build:
 
 init:
 	@echo "[StealthDNS] Initializing..."
-	git clean -df release
-	git submodule update --init --recursive
-	go mod tidy
+	@git clean -df release 2>/dev/null || true
+	@git submodule update --init --recursive
+	@go mod tidy
 
 # Build OpenNHP SDK from submodule
 build-sdk:
@@ -41,22 +41,26 @@ endif
 
 build-sdk-linux:
 	@echo "[StealthDNS] Building Linux SDK (nhp-agent.so)..."
-	cd $(OPENNHP_DIR)/nhp && go mod tidy
-	cd $(OPENNHP_DIR)/endpoints && go mod tidy
-	cd $(OPENNHP_DIR)/endpoints && \
+	@cd $(OPENNHP_DIR)/nhp && go mod tidy
+	@cd $(OPENNHP_DIR)/endpoints && go mod tidy
+	@cd $(OPENNHP_DIR)/endpoints && \
 		go build -a -trimpath -buildmode=c-shared -ldflags="-w -s" -v \
 		-o ../../../sdk/nhp-agent.so ./agent/main/main.go ./agent/main/export.go
 	@echo "[StealthDNS] Linux SDK built successfully!"
+	@cd $(OPENNHP_DIR)/nhp && git checkout go.mod go.sum 2>/dev/null || true
+	@cd $(OPENNHP_DIR)/endpoints && git checkout go.mod go.sum 2>/dev/null || true
 
 build-sdk-macos:
 	@echo "[StealthDNS] Building macOS SDK (nhp-agent.dylib)..."
-	cd $(OPENNHP_DIR)/nhp && go mod tidy
-	cd $(OPENNHP_DIR)/endpoints && go mod tidy
-	cd $(OPENNHP_DIR)/endpoints && \
+	@cd $(OPENNHP_DIR)/nhp && go mod tidy
+	@cd $(OPENNHP_DIR)/endpoints && go mod tidy
+	@cd $(OPENNHP_DIR)/endpoints && \
 		GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 \
 		go build -a -trimpath -buildmode=c-shared -ldflags="-w -s" -v \
 		-o ../../../sdk/nhp-agent.dylib ./agent/main/main.go ./agent/main/export.go
 	@echo "[StealthDNS] macOS SDK built successfully!"
+	@cd $(OPENNHP_DIR)/nhp && git checkout go.mod go.sum 2>/dev/null || true
+	@cd $(OPENNHP_DIR)/endpoints && git checkout go.mod go.sum 2>/dev/null || true
 
 build:
 	@echo "[StealthDNS] Building package..."
@@ -90,8 +94,9 @@ ui: ui-init ui-build
 
 ui-init:
 	@echo "[StealthDNS UI] Initializing..."
-	cd ui && go mod tidy
-	cd ui/frontend && npm install
+	@cd ui && go mod tidy
+	@cd ui/frontend && npm ci || npm install
+	@cd ui/frontend && git checkout package-lock.json 2>/dev/null || true
 
 ui-build:
 	@echo "[StealthDNS UI] Building UI package..."
@@ -115,6 +120,7 @@ else ifeq ($(OS_NAME), darwin)
 	cd ui && PATH="$(GOBIN):$$PATH" $$WAILS_CMD build -platform darwin/universal
 	cp -r ./ui/build/bin/stealthdns-ui.app ./release/ 2>/dev/null || \
 	cp ./ui/build/bin/stealthdns-ui ./release/
+	@cd ui/frontend && git checkout wailsjs/ 2>/dev/null || true
 else
 	@WAILS_CMD=$$(command -v wails 2>/dev/null || echo "$(GOBIN)/wails"); \
 	if [ ! -f "$$WAILS_CMD" ] && [ ! -x "$$WAILS_CMD" ]; then \
