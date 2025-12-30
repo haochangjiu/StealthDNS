@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Shield outline -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,22 L30,32 L30,54 C30,68 40,80 54,84 C68,80 78,68 78,54 L78,32 L54,22 Z M54,26 L74,34.5 L74,54 C74,65.5 65.5,76 54,80 C42.5,76 34,65.5 34,54 L34,34.5 L54,26 Z"/>
+    
+    <!-- DNS Letters - Bold style, stroke width=3 -->
+    
+    <!-- D -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,42 L36,54 L42,54 C46,54 48,51 48,48 C48,45 46,42 42,42 L36,42 Z M39,45 L41,45 C43,45 45,46 45,48 C45,50 43,51 41,51 L39,51 L39,45 Z"/>
+    
+    <!-- N -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,42 L50,54 L53,54 L53,48 L57,54 L60,54 L60,42 L57,42 L57,48 L53,42 L50,42 Z"/>
+    
+    <!-- S -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,45 C62,43 64,42 66.5,42 L72,42 L72,45 L67,45 C66,45 65,45.5 65,46 C65,46.5 65.5,47 67,47 L69,47 C71.5,47 73,48.5 73,50.5 C73,53 71,54 68.5,54 L62,54 L62,51 L68,51 C69,51 70,50.5 70,50 C70,49.5 69.5,49 68,49 L66,49 C63.5,49 62,47.5 62,45 Z"/>
+    
+    <!-- Lock icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49,62 L49,64.5 C49,64.5 47,64.5 47,67 L47,73 C47,75.5 49,75.5 49,75.5 L59,75.5 C59,75.5 61,75.5 61,73 L61,67 C61,64.5 59,64.5 59,64.5 L59,62 C59,59.5 56.5,57.5 54,57.5 C51.5,57.5 49,59.5 49,62 Z M51.5,62 C51.5,60.7 52.5,60 54,60 C55.5,60 56.5,60.7 56.5,62 L56.5,64.5 L51.5,64.5 L51.5,62 Z M53,69 C53,68.4 53.4,68 54,68 C54.6,68 55,68.4 55,69 L55,71 C55,71.6 54.6,72 54,72 C53.4,72 53,71.6 53,71 L53,69 Z"/>
+</vector>
