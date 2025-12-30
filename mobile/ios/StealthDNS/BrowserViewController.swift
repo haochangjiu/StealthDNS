@@ -906,27 +906,147 @@ extension BrowserViewController: WKNavigationDelegate {
         progressView.isHidden = true
         currentPageIsNhp = false
         nhpIndicatorView.isHidden = true
+        
+        let nsError = error as NSError
+        // Ignore cancelled errors (user navigated away)
+        if nsError.code == NSURLErrorCancelled { return }
+        
+        showErrorPage(error: error.localizedDescription, url: webView.url?.absoluteString ?? "")
+    }
+    
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        progressView.isHidden = true
+        currentPageIsNhp = false
+        nhpIndicatorView.isHidden = true
+        
+        let nsError = error as NSError
+        
+        // Ignore certain errors that are not real page load failures
+        switch nsError.code {
+        case NSURLErrorCancelled:
+            // User navigated away or cancelled
+            return
+        case NSURLErrorUnsupportedURL:
+            // Unsupported URL scheme (like intent://)
+            return
+        case 102:
+            // Frame load interrupted (normal for redirects)
+            return
+        case 204:
+            // Plug-in handled load
+            return
+        default:
+            break
+        }
+        
+        showErrorPage(error: error.localizedDescription, url: webView.url?.absoluteString ?? "")
+    }
+    
+    private func showErrorPage(error: String, url: String) {
+        let errorHtml = """
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    background: #0b1020; 
+                    color: #fff; 
+                    display: flex; 
+                    flex-direction: column;
+                    align-items: center; 
+                    justify-content: center; 
+                    height: 100vh; 
+                    margin: 0;
+                    padding: 20px;
+                    box-sizing: border-box;
+                    text-align: center;
+                }
+                .icon { font-size: 64px; margin-bottom: 20px; }
+                h1 { font-size: 20px; margin: 0 0 10px 0; color: #ff9800; }
+                p { font-size: 14px; color: #9e9e9e; margin: 5px 0; word-break: break-all; }
+                .url { font-size: 12px; color: #666; margin-top: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+                button { 
+                    margin-top: 20px; 
+                    padding: 12px 24px; 
+                    background: #29b6f6; 
+                    border: none; 
+                    border-radius: 8px; 
+                    color: white; 
+                    font-size: 16px;
+                    cursor: pointer;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="icon">🌐</div>
+            <h1>Page Load Failed</h1>
+            <p>Error: \(error)</p>
+            <p class="url">\(url)</p>
+            <button onclick="location.reload()">Retry</button>
+        </body>
+        </html>
+        """
+        webView.loadHTMLString(errorHtml, baseURL: nil)
     }
     
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = navigationAction.request.url,
-              let host = url.host else {
+        guard let url = navigationAction.request.url else {
             decisionHandler(.allow)
             return
         }
         
-        // Check if it's an NHP domain
-        if NhpcoreIsNHPDomain(host) {
-            decisionHandler(.cancel)
-            processNHPURL(url.absoluteString, host: host)
+        let scheme = url.scheme?.lowercased() ?? ""
+        let host = url.host ?? ""
+        
+        // Allow all standard web protocols to be handled by WKWebView
+        if scheme == "http" || scheme == "https" {
+            // Check if it's an NHP domain
+            if !host.isEmpty && NhpcoreIsNHPDomain(host) {
+                decisionHandler(.cancel)
+                processNHPURL(url.absoluteString, host: host)
+                return
+            }
+            
+            // For normal HTTP/HTTPS URLs, let WKWebView handle them
+            if navigationAction.navigationType == .linkActivated {
+                currentPageIsNhp = false
+            }
+            decisionHandler(.allow)
             return
         }
         
-        // For non-NHP URLs navigated to from NHP page, reset status
-        if navigationAction.navigationType == .linkActivated {
-            currentPageIsNhp = false
+        // Ignore special schemes (javascript, about, data, blob)
+        if scheme == "javascript" || scheme == "about" || scheme == "data" || scheme == "blob" {
+            decisionHandler(.allow)
+            return
         }
         
+        // Handle external app URLs (tel, mailto, sms, etc.)
+        if scheme == "tel" || scheme == "mailto" || scheme == "sms" || scheme == "facetime" {
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            }
+            decisionHandler(.cancel)
+            return
+        }
+        
+        // Handle custom app schemes (baiduboxapp, weixin, alipay, etc.)
+        // Try to open the app if installed, otherwise silently ignore
+        if !scheme.isEmpty && scheme != "file" {
+            print("Custom scheme detected: \(scheme)")
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            } else {
+                // App not installed, silently ignore
+                print("No app installed for scheme: \(scheme)")
+            }
+            // Always cancel to prevent WKWebView from showing error
+            decisionHandler(.cancel)
+            return
+        }
+        
+        // For any other cases, let WKWebView handle
         decisionHandler(.allow)
     }
 }

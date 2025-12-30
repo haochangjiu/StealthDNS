@@ -33,6 +33,28 @@ fi
 
 echo "Generating app icons..."
 
+# Get image dimensions
+WIDTH=$(identify -format "%w" "$SOURCE_ICON")
+HEIGHT=$(identify -format "%h" "$SOURCE_ICON")
+
+echo "Source image size: ${WIDTH}x${HEIGHT}"
+
+# If not square, create a square version by padding
+if [ "$WIDTH" != "$HEIGHT" ]; then
+    echo "Image is not square, creating square version..."
+    # Determine the larger dimension
+    if [ "$WIDTH" -gt "$HEIGHT" ]; then
+        SIZE=$WIDTH
+    else
+        SIZE=$HEIGHT
+    fi
+    # Create a temporary square image with transparent background, centered
+    TEMP_ICON="/tmp/appicon_square_temp.png"
+    convert "$SOURCE_ICON" -gravity center -background transparent -extent ${SIZE}x${SIZE} "$TEMP_ICON"
+    SOURCE_ICON="$TEMP_ICON"
+    echo "Created square image: ${SIZE}x${SIZE}"
+fi
+
 # Android Icons
 ANDROID_RES="$PROJECT_DIR/android/app/src/main/res"
 

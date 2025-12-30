@@ -220,17 +220,79 @@ class MainActivity : AppCompatActivity() {
         webView?.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
+                val scheme = request.url.scheme?.lowercase() ?: ""
                 val host = request.url.host ?: ""
-
-                // Check if it's an NHP domain
-                if (nhpInitialized && isNHPDomain(host)) {
-                    Log.d(TAG, "Detected NHP domain: $host")
-                    processNHPUrl(url, host)
+                
+                Log.d(TAG, "shouldOverrideUrlLoading: url=$url, scheme=$scheme, host=$host")
+                
+                // Allow all standard web protocols to be handled by WebView
+                if (scheme == "http" || scheme == "https") {
+                    // Check if it's an NHP domain
+                    if (host.isNotEmpty() && nhpInitialized && isNHPDomain(host)) {
+                        Log.d(TAG, "Detected NHP domain: $host")
+                        processNHPUrl(url, host)
+                        return true
+                    }
+                    
+                    // For normal HTTP/HTTPS URLs, let WebView handle them
+                    currentPageIsNhp = false
+                    return false
+                }
+                
+                // Ignore special schemes (javascript, about, data, blob)
+                if (scheme == "javascript" || scheme == "about" || scheme == "data" || scheme == "blob") {
+                    Log.d(TAG, "Ignoring special scheme: $scheme")
+                    return false
+                }
+                
+                // Handle intent:// URLs (open external apps)
+                if (scheme == "intent") {
+                    try {
+                        val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                        if (intent.resolveActivity(packageManager) != null) {
+                            startActivity(intent)
+                        } else {
+                            Log.d(TAG, "No app to handle intent: $url")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to handle intent URL: $url", e)
+                    }
                     return true
                 }
                 
-                // For non-NHP URLs, reset NHP status
-                currentPageIsNhp = false
+                // Handle common external app schemes (tel, mailto, sms, etc.)
+                if (scheme == "tel" || scheme == "mailto" || scheme == "sms" || scheme == "market" || scheme == "geo") {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, request.url)
+                        if (intent.resolveActivity(packageManager) != null) {
+                            startActivity(intent)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to handle external URL: $url", e)
+                    }
+                    return true
+                }
+                
+                // Handle custom app schemes (baiduboxapp, weixin, alipay, etc.)
+                // Try to open the app, if not installed, silently ignore
+                if (!scheme.startsWith("http")) {
+                    Log.d(TAG, "Custom scheme detected: $scheme, attempting to open app")
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, request.url)
+                        if (intent.resolveActivity(packageManager) != null) {
+                            startActivity(intent)
+                        } else {
+                            // App not installed, silently ignore
+                            Log.d(TAG, "No app installed for scheme: $scheme")
+                        }
+                    } catch (e: Exception) {
+                        Log.d(TAG, "Cannot handle custom scheme: $scheme")
+                    }
+                    // Always return true to prevent WebView from showing error
+                    return true
+                }
+                
+                // For any other cases, let WebView handle
                 return false
             }
 
@@ -263,15 +325,88 @@ class MainActivity : AppCompatActivity() {
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame == true) {
-                    progressBar?.visibility = View.GONE
-                    swipeRefresh?.isRefreshing = false
-                    // On error, hide NHP indicator
-                    if (currentPageIsNhp) {
-                        currentPageIsNhp = false
-                        nhpIndicator?.visibility = View.GONE
+                val errorCode = error?.errorCode ?: -1
+                val errorDesc = error?.description?.toString() ?: "Unknown error"
+                val failedUrl = request?.url?.toString() ?: ""
+                
+                Log.e(TAG, "WebView error: code=$errorCode, desc=$errorDesc, url=$failedUrl, isMainFrame=${request?.isForMainFrame}")
+                
+                // Only handle main frame errors (not resource loading errors)
+                if (request?.isForMainFrame != true) {
+                    return
+                }
+                
+                // Ignore certain error codes that are not real errors
+                // ERROR_UNKNOWN (-1), ERROR_HOST_LOOKUP (-2), ERROR_CONNECT (-6), ERROR_TIMEOUT (-8)
+                // ERROR_BAD_URL (-12), ERROR_UNSUPPORTED_SCHEME (-10)
+                when (errorCode) {
+                    WebViewClient.ERROR_UNSUPPORTED_SCHEME -> {
+                        // Unsupported scheme, might be intent:// or other app links
+                        Log.d(TAG, "Unsupported scheme, ignoring error page")
+                        return
+                    }
+                    WebViewClient.ERROR_UNKNOWN -> {
+                        // Unknown error, might be cancelled navigation
+                        Log.d(TAG, "Unknown error, ignoring error page")
+                        return
                     }
                 }
+                
+                progressBar?.visibility = View.GONE
+                swipeRefresh?.isRefreshing = false
+                
+                // On error, hide NHP indicator
+                if (currentPageIsNhp) {
+                    currentPageIsNhp = false
+                    nhpIndicator?.visibility = View.GONE
+                }
+                
+                // Show custom error page for main frame errors
+                val errorHtml = """
+                    <html>
+                    <head>
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <style>
+                            body { 
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                background: #0b1020; 
+                                color: #fff; 
+                                display: flex; 
+                                flex-direction: column;
+                                align-items: center; 
+                                justify-content: center; 
+                                height: 100vh; 
+                                margin: 0;
+                                padding: 20px;
+                                box-sizing: border-box;
+                                text-align: center;
+                            }
+                            .icon { font-size: 64px; margin-bottom: 20px; }
+                            h1 { font-size: 20px; margin: 0 0 10px 0; color: #ff9800; }
+                            p { font-size: 14px; color: #9e9e9e; margin: 5px 0; word-break: break-all; }
+                            .url { font-size: 12px; color: #666; margin-top: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+                            button { 
+                                margin-top: 20px; 
+                                padding: 12px 24px; 
+                                background: #29b6f6; 
+                                border: none; 
+                                border-radius: 8px; 
+                                color: white; 
+                                font-size: 16px;
+                                cursor: pointer;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="icon">🌐</div>
+                        <h1>Page Load Failed</h1>
+                        <p>Error: $errorDesc</p>
+                        <p class="url">$failedUrl</p>
+                        <button onclick="history.back()">Go Back</button>
+                    </body>
+                    </html>
+                """.trimIndent()
+                view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
             }
             
             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: android.net.http.SslError?) {
