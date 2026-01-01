@@ -3,13 +3,13 @@
   flex-direction: column;
   height: 100vh;
   background: var(--bg-primary);
-  /* 背景装饰 */
+  /* Background decoration */
   background-image: 
     radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
     radial-gradient(ellipse 60% 40% at 100% 100%, rgba(99, 102, 241, 0.05) 0%, transparent 50%);
 }
 
-/* 标签导航 */
+/* Tab navigation */
 .tabs {
   display: flex;
   gap: var(--spacing-xs);
@@ -53,14 +53,14 @@
   opacity: 1;
 }
 
-/* 内容区域 */
+/* Content area */
 .content {
   flex: 1;
   overflow-y: auto;
   padding: var(--spacing-lg);
 }
 
-/* 面板通用样式 */
+/* Common panel styles */
 .panel-header {
   margin-bottom: var(--spacing-lg);
 }
@@ -86,7 +86,7 @@
   margin-bottom: var(--spacing-md);
 }
 
-/* 动画关键帧 */
+/* Animation keyframes */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -98,7 +98,7 @@
   }
 }
 
-/* 面板进入动画 */
+/* Panel enter animation */
 .status-panel,
 .config-panel,
 .server-panel {

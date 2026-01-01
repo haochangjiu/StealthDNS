@@ -10,12 +10,12 @@
   -webkit-app-region: drag;
 }
 
-/* macOS 特定样式：为交通灯按钮（关闭、最小化、最大化）留出空间 */
+/* macOS specific styles: leave space for traffic light buttons (close, minimize, maximize) */
 .title-bar-macos {
   padding-left: 80px;
 }
 
-/* macOS 下隐藏自定义的关闭和最小化按钮，使用系统按钮 */
+/* Hide custom close and minimize buttons on macOS, use system buttons */
 .title-bar-macos .title-bar-controls {
   display: none;
 }

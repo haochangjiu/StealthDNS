@@ -14,7 +14,7 @@
   flex: 1;
 }
 
-/* 服务器列表 */
+/* Server list */
 .server-list {
   display: flex;
   flex-direction: column;
@@ -132,7 +132,7 @@
   margin-bottom: 0;
 }
 
-/* 服务器面板底部 */
+/* Server panel footer */
 .server-panel .form-actions {
   margin-top: var(--spacing-xl);
 }

@@ -10,7 +10,7 @@
   margin-bottom: var(--spacing-md);
 }
 
-/* 工具栏 */
+/* Toolbar */
 .log-toolbar {
   display: flex;
   align-items: center;
@@ -109,7 +109,7 @@
   border-color: var(--color-danger);
 }
 
-/* 日志容器 */
+/* Log container */
 .log-container {
   flex: 1;
   overflow-y: auto;
@@ -147,7 +147,7 @@
   }
 }
 
-/* 日志条目 */
+/* Log entry */
 .log-entries {
   padding: var(--spacing-sm);
 }
@@ -188,7 +188,7 @@
   color: var(--text-primary);
 }
 
-/* 日志级别颜色 */
+/* Log level colors */
 .log-error {
   background: rgba(239, 68, 68, 0.1);
 }
@@ -240,7 +240,7 @@
   border: 1px solid var(--border-color);
 }
 
-/* 状态栏 */
+/* Status bar */
 .log-statusbar {
   display: flex;
   align-items: center;
@@ -269,7 +269,7 @@
   }
 }
 
-/* 响应式 */
+/* Responsive */
 @media (max-width: 768px) {
   .log-toolbar {
     flex-direction: column;

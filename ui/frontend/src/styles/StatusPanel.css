@@ -3,7 +3,7 @@
   margin: 0 auto;
 }
 
-/* 状态指示器 */
+/* Status indicator */
 .status-indicator {
   display: flex;
   align-items: center;
@@ -96,7 +96,7 @@
   margin-top: var(--spacing-xs);
 }
 
-/* 控制按钮 */
+/* Control buttons */
 .control-buttons {
   display: flex;
   align-items: center;
@@ -105,7 +105,7 @@
   margin-bottom: var(--spacing-xl);
 }
 
-/* 管理员权限提示 */
+/* Admin privilege hint */
 .admin-hint {
   font-size: 12px;
   color: var(--text-secondary);
@@ -113,7 +113,7 @@
   opacity: 0.7;
 }
 
-/* Open Demo 按钮 */
+/* Open Demo button */
 .btn-demo {
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
   border-color: #6366f1 !important;
@@ -125,7 +125,7 @@
   border-color: #4f46e5 !important;
 }
 
-/* 设置区域 */
+/* Settings section */
 .settings-section {
   padding: var(--spacing-lg);
   background: var(--bg-card);
@@ -158,7 +158,7 @@
   color: var(--text-muted);
 }
 
-/* 信息卡片 */
+/* Info cards */
 .info-cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -210,7 +210,7 @@
   color: var(--text-primary);
 }
 
-/* 单行布局 */
+/* Single row layout */
 .info-cards-row {
   display: flex;
   gap: var(--spacing-md);
@@ -263,7 +263,7 @@
   color: var(--text-muted);
 }
 
-/* 响应式：小屏幕时堆叠显示 */
+/* Responsive: stack on small screens */
 @media (max-width: 600px) {
   .info-cards-row {
     flex-direction: column;
