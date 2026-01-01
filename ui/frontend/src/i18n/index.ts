@@ -40,6 +40,7 @@ export interface Translations {
     startService: string
     stopService: string
     restartService: string
+    openDemo: string
     starting: string
     stopping: string
     autoRestart: string
@@ -184,6 +185,7 @@ const zhCN: Translations = {
     startService: '启动服务',
     stopService: '停止服务',
     restartService: '重启服务',
+    openDemo: '打开 https://demo.nhp',
     starting: '启动中...',
     stopping: '停止中...',
     autoRestart: '崩溃自动重启',
@@ -317,6 +319,7 @@ const enUS: Translations = {
     startService: 'Start Service',
     stopService: 'Stop Service',
     restartService: 'Restart Service',
+    openDemo: 'Open https://demo.nhp',
     starting: 'Starting...',
     stopping: 'Stopping...',
     autoRestart: 'Auto Restart on Crash',
@@ -450,6 +453,7 @@ const jaJP: Translations = {
     startService: 'サービス開始',
     stopService: 'サービス停止',
     restartService: 'サービス再起動',
+    openDemo: 'https://demo.nhp を開く',
     starting: '起動中...',
     stopping: '停止中...',
     autoRestart: 'クラッシュ時自動再起動',
@@ -583,6 +587,7 @@ const koKR: Translations = {
     startService: '서비스 시작',
     stopService: '서비스 중지',
     restartService: '서비스 재시작',
+    openDemo: 'https://demo.nhp 열기',
     starting: '시작 중...',
     stopping: '중지 중...',
     autoRestart: '충돌 시 자동 재시작',
@@ -716,6 +721,7 @@ const deDE: Translations = {
     startService: 'Dienst starten',
     stopService: 'Dienst stoppen',
     restartService: 'Dienst neustarten',
+    openDemo: 'https://demo.nhp öffnen',
     starting: 'Startet...',
     stopping: 'Stoppt...',
     autoRestart: 'Automatischer Neustart bei Absturz',
@@ -849,6 +855,7 @@ const frFR: Translations = {
     startService: 'Démarrer le service',
     stopService: 'Arrêter le service',
     restartService: 'Redémarrer le service',
+    openDemo: 'Ouvrir https://demo.nhp',
     starting: 'Démarrage...',
     stopping: 'Arrêt...',
     autoRestart: 'Redémarrage auto en cas de crash',
