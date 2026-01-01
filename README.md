@@ -63,6 +63,13 @@ View real-time logs and customize application settings including language prefer
 |:---:|:---:|
 | ![Logs](./docs/screenshots/logs.png) | ![Settings](./docs/screenshots/settings.png) |
 
+### Accessing Hidden Services
+With StealthDNS running, you can access NHP-protected servers like `https://demo.nhp`. The server's domain and IP/port are completely hidden from unauthorized users - only authenticated clients can resolve and connect.
+
+![Demo NHP Access](./docs/screenshots/demo-nhp-access.png)
+
+*The demo server at `https://demo.nhp` is accessible only through StealthDNS after successful NHP authentication.*
+
 ---
 
 ## 🧠 How It Works
