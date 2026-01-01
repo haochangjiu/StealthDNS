@@ -63,12 +63,22 @@ View real-time logs and customize application settings including language prefer
 |:---:|:---:|
 | ![Logs](./docs/screenshots/logs.png) | ![Settings](./docs/screenshots/settings.png) |
 
-### Accessing Hidden Services
+### Accessing Hidden Services (Desktop)
 With StealthDNS running, you can access NHP-protected servers like `https://demo.nhp`. The server's domain and IP/port are completely hidden from unauthorized users - only authenticated clients can resolve and connect.
 
 ![Demo NHP Access](./docs/screenshots/demo-nhp-access.png)
 
 *The demo server at `https://demo.nhp` is accessible only through StealthDNS after successful NHP authentication.*
+
+### Mobile App (Android & iOS)
+
+On mobile platforms (iOS and Android), the system does not allow apps to set the DNS service to `127.0.0.1`. Therefore, the **StealthDNS Browser** uses a built-in WebView component with integrated NHP support to demonstrate how DNS queries work with NHP protection.
+
+| NHP-Protected Browsing | About StealthDNS Browser |
+|:---:|:---:|
+| ![Mobile Demo](./docs/screenshots/mobile-demo.png) | ![Mobile About](./docs/screenshots/mobile-about.png) |
+
+*The StealthDNS Browser app provides a secure browsing experience with NHP (Network Hiding Protocol) enabled, allowing access to hidden services directly from your mobile device.*
 
 ---
 
