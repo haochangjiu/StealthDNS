@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StealthDNS</string>
+    <string name="url_hint">输入网址或搜索</string>
+    <string name="nhp_protected">NHP 保护已启用</string>
+    <string name="nhp_knocking">正在执行 NHP 敲门...</string>
+</resources>
+
+
+
+

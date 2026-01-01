@@ -1,0 +1,26 @@
+{
+  "agent": {
+    "privateKeyBase64": "eACeqvhs7AWHIXM+xsKK9cCk31gFinnMGgGI2RuAxUQ=",
+    "userId": "mobile-agent",
+    "organizationId": "opennhp.cn",
+    "cipherScheme": 1
+  },
+  "servers": [
+    {
+      "hostname": "nhp.opennhp.org",
+      "ip": "",
+      "port": 62206,
+      "pubKeyBase64": "T29VClxfuJa7AKA2D+4gBvGXnyGZA35AdqRkdjk49Vs=",
+      "expireTime": 1924991999
+    }
+  ],
+  "resources": [
+    {
+      "authServiceId": "example",
+      "resourceId": "demo",
+      "serverIp": "",
+      "serverHostname": "nhp.opennhp.org",
+      "serverPort": 62206
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/OpenNHP/StealthDNS/common"
 	"github.com/OpenNHP/opennhp/nhp/log"
-	"github.com/StackExchange/wmi"
 	"golang.org/x/text/encoding/ianaindex"
 	"golang.org/x/text/transform"
 )
@@ -28,10 +28,12 @@ type WindowsHandler struct {
 	dhcpEnabled   bool
 }
 
-type NetworkAdapter struct {
-	Index           uint32 `wmi:"Index"`
-	GUID            string `wmi:"GUID"`
-	NetConnectionID string `wmi:"NetConnectionID"`
+type NetworkInterface struct {
+	Index         string
+	met           uint32
+	status        string
+	interfaceName string
+	dnsAddress    []string
 }
 
 type NetworkAdapterConfig struct {
@@ -65,12 +67,12 @@ func (h *WindowsHandler) SetStealthDNS() (bool, error) {
 		log.Warning("The current account does not have administrator privileges. Please manually configure the alternate DNS.")
 		return true, nil
 	}
-	info, err := h.getActiveInterfacesInfo()
+	networkInterfaces, err := h.getActiveInterface()
 	if err != nil {
 		log.Error("get active interface info fail: %v", err)
 		return false, err
 	}
-	err = h.getPrimaryInterface(info)
+	err = h.getPrimaryInterface(networkInterfaces)
 	if err != nil {
 		log.Error("get primary interface fail: %v", err)
 		return false, err
@@ -119,6 +121,14 @@ func (h *WindowsHandler) getOEMCodePage() {
 		h.codePage = 437
 	}
 	h.codePage = uint32(cp)
+	if h.codePage == 936 || h.codePage == 950 {
+		cmd = exec.Command("chcp", "65001")
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+		if err = cmd.Run(); err == nil {
+			h.codePage = 65001
+		}
+	}
 }
 
 func (h *WindowsHandler) decodeFromCodePage(data []byte) (string, error) {
@@ -140,84 +150,78 @@ func (h *WindowsHandler) decodeFromCodePage(data []byte) (string, error) {
 	return utf8Str, nil
 }
 
-func (h *WindowsHandler) getActiveInterfacesWithMetric() ([]WinInterInfo, error) {
-	cmd := exec.Command("netsh", "interface", "ipv4", "show", "interfaces")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, err
+// Get the interface with the lowest metric (highest priority)
+func (h *WindowsHandler) getPrimaryInterface(networkInterface []*NetworkInterface) error {
+	for _, n := range networkInterface {
+		isDNCP, address, err := h.getDNSInfo(n.interfaceName)
+		if err == nil {
+			h.dhcpEnabled = isDNCP
+			h.backupDNS = address
+			h.interfaceName = n.interfaceName
+			return err
+		}
 	}
-
-	text, err := h.decodeFromCodePage(output)
-	if err != nil {
-		text = string(output)
-	}
-
-	lines := strings.Split(text, "\n")
-	var interfaces []WinInterInfo
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || !strings.Contains(line, "connected") {
-			continue
-		}
-
-		fields := regexp.MustCompile(`\s{2,}`).Split(line, -1)
-		if len(fields) < 4 {
-			continue
-		}
-
-		if _, err := strconv.Atoi(fields[0]); err != nil {
-			continue
-		}
-
-		metricStr := fields[1]
-		name := strings.TrimSpace(fields[len(fields)-1])
-
-		metric, err := strconv.Atoi(metricStr)
-		if err != nil {
-			continue
-		}
-
-		interfaces = append(interfaces, WinInterInfo{Name: name, Metric: metric})
-	}
-
-	return interfaces, nil
+	return fmt.Errorf("no dns address found")
 }
 
-// Get the interface with the lowest metric (highest priority)
-func (h *WindowsHandler) getPrimaryInterface(interMap map[string]*NetworkAdapterConfig) error {
-	interfaces, err := h.getActiveInterfacesWithMetric()
+func (h *WindowsHandler) getDNSInfo(interfaceName string) (bool, []string, error) {
+	dnsAddress := make([]string, 0)
+	isDHCP := false
+	cmd := exec.Command("netsh", "interface", "ipv4", "show", "dns", interfaceName)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return false, dnsAddress, err
 	}
-	if len(interfaces) == 0 {
-		return fmt.Errorf("no active network interface found")
-	}
+	scanner := bufio.NewScanner(strings.NewReader(string(output)))
 
-	sort.Slice(interfaces, func(i, j int) bool {
-		return interfaces[i].Metric < interfaces[j].Metric
-	})
-	for _, interfaceInfo := range interfaces {
-		if networkConfig, ok := interMap[interfaceInfo.Name]; ok {
-			h.interfaceName = interfaceInfo.Name
-			h.backupDNS = make([]string, 0)
-			h.dhcpEnabled = networkConfig.DHCPEnabled
-			for _, dnsIp := range networkConfig.DNSServerSearchOrder {
-				if dnsIp == common.StealthDnsIp {
-					continue
-				}
-				h.backupDNS = append(h.backupDNS, dnsIp)
-			}
-			if len(h.backupDNS) == 0 {
-				log.Warning("Failed to obtain upstream DNS; using default DNS [%s] as the upstream DNS", common.DefaultUpstreamDNS)
-				h.upstreamDNS = common.DefaultUpstreamDNS
-			} else {
-				h.upstreamDNS = h.backupDNS[0]
-			}
-			return nil
+	for scanner.Scan() {
+		line, err := h.decodeFromCodePage(scanner.Bytes())
+		if err != nil || len(line) == 0 {
+			continue
+		}
+		ip := extractFirstIPv4(line)
+		if ip != "" {
+			dnsAddress = append(dnsAddress, ip)
+		}
+		if strings.Contains(line, "DHCP") && !isDHCP {
+			isDHCP = true
 		}
 	}
-	return fmt.Errorf("no active network interface found")
+	if len(dnsAddress) == 0 {
+		return isDHCP, dnsAddress, fmt.Errorf("no dns address found")
+	}
+	return isDHCP, dnsAddress, nil
+}
+
+func extractFirstIPv4(s string) string {
+	re := regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+	candidates := re.FindAllString(s, -1)
+
+	for _, ip := range candidates {
+		parts := strings.Split(ip, ".")
+		if len(parts) != 4 {
+			continue
+		}
+
+		valid := true
+		for _, part := range parts {
+			if len(part) > 1 && part[0] == '0' {
+				valid = false
+				break
+			}
+			num, err := strconv.Atoi(part)
+			if err != nil || num < 0 || num > 255 {
+				valid = false
+				break
+			}
+		}
+
+		if valid {
+			return ip
+		}
+	}
+
+	return "" // No valid IPv4 address detected
 }
 
 func (h *WindowsHandler) setDNS(restoreFlag bool) error {
@@ -230,8 +234,11 @@ func (h *WindowsHandler) setDNS(restoreFlag bool) error {
 	if !restoreFlag {
 		dnsList = append(dnsList, common.StealthDnsIp)
 	}
-	for _, dnsIp := range h.backupDNS {
-		dnsList = append(dnsList, dnsIp)
+	for _, dn := range h.backupDNS {
+		if strings.EqualFold(dn, common.StealthDnsIp) && !restoreFlag {
+			continue
+		}
+		dnsList = append(dnsList, dn)
 	}
 	cmd := exec.Command("netsh", "interface", "ip", "delete", "dns", h.interfaceName, "all")
 	err := cmd.Run()
@@ -257,33 +264,67 @@ func (h *WindowsHandler) setDNS(restoreFlag bool) error {
 	return nil
 }
 
-func (h *WindowsHandler) getActiveInterfacesInfo() (map[string]*NetworkAdapterConfig, error) {
-	var adapters []NetworkAdapter
-	err := wmi.Query("SELECT * FROM Win32_NetworkAdapter", &adapters)
+func (h *WindowsHandler) getActiveInterface() ([]*NetworkInterface, error) {
+	cmd := exec.Command("netsh", "interface", "ipv4", "show", "interfaces")
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get interfaces: %v", err)
 	}
 
-	adapterMap := make(map[string]string)
-	for _, a := range adapters {
-		if a.NetConnectionID != "" {
-			adapterMap[a.GUID] = a.NetConnectionID
-		}
-	}
+	scanner := bufio.NewScanner(strings.NewReader(string(output)))
+	headerSkipped := false
 
-	var configs []NetworkAdapterConfig
-	err = wmi.Query("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled=True", &configs)
-	if err != nil {
-		return nil, err
-	}
-	interMap := make(map[string]*NetworkAdapterConfig)
-	for _, cfg := range configs {
-		if len(cfg.DNSServerSearchOrder) == 0 {
+	networkInterfaces := make([]*NetworkInterface, 0)
+
+	for scanner.Scan() {
+		line, err := h.decodeFromCodePage(scanner.Bytes())
+		if err != nil {
 			continue
 		}
-		if name, ok := adapterMap[cfg.SettingID]; ok {
-			interMap[name] = &cfg
+		if !headerSkipped {
+			if strings.Contains(line, "Idx") && strings.Contains(line, "Met") {
+				headerSkipped = true
+			}
+			continue
+		}
+		if line == "" {
+			continue
+		}
+		line = strings.TrimSpace(line)
+		fields := regexp.MustCompile(`\s+`).Split(line, -1)
+		if len(fields) < 5 {
+			continue
+		}
+		state := fields[3]
+		name := fields[4]
+		if len(fields) > 5 {
+			for i := 5; i < len(fields); i++ {
+				name = fmt.Sprintf("%s %s", name, fields[i])
+			}
+		}
+
+		if state == "connected" {
+			val2, err := strconv.Atoi(fields[1])
+			if err != nil {
+				continue
+			}
+			network := &NetworkInterface{
+				Index:         fields[0],
+				met:           uint32(val2),
+				status:        state,
+				interfaceName: name,
+			}
+			networkInterfaces = append(networkInterfaces, network)
 		}
 	}
-	return interMap, nil
+
+	if len(networkInterfaces) == 0 {
+		return nil, fmt.Errorf("no active network interface found")
+	}
+
+	sort.Slice(networkInterfaces, func(i, j int) bool {
+		return networkInterfaces[i].met < networkInterfaces[j].met
+	})
+
+	return networkInterfaces, nil
 }
